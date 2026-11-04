@@ -1,7 +1,7 @@
 "use strict";
 
 // One small client, one Java API. The server owns permissions and saved league data.
-let league = { teams: [], players: [], games: [], standings: [] };
+let league = { teams: [], players: [], games: [], standings: [], scoreSubmissions: [] };
 let session = { username: "", view: "GUEST", teamId: "", csrf: "" };
 let scheduleFilter = "SCHEDULED",
   weekFilter = "ALL",
@@ -217,7 +217,105 @@ function schedulePage() {
       .join(
         "",
       )}<select id="week-filter" aria-label="Filter by week"><option value="ALL">All weeks</option>${weeks.map((w) => `<option value="${w}" ${String(w) === weekFilter ? "selected" : ""}>Week ${w}</option>`).join("")}</select></div><div class="game-grid">${games.map((g) => upcomingGame(g, true)).join("")}</div>${games.length ? "" : empty("No games here yet", "Choose another filter or schedule a new matchup.")}`
+  ) + scoreSubmissionSection(); + commissionerDisputesSection();
+}
+function scoreSubmissionSection() {
+  if (!session.username || session.view !== "MANAGER") return "";
+
+  const myGames = league.games.filter(
+    (g) =>
+      (g.homeId === session.teamId || g.awayId === session.teamId) &&
+      g.status === "SCHEDULED"
   );
+
+  const pending = league.scoreSubmissions.filter(
+    (s) => s.status === "PENDING" &&
+      s.submittedBy !== session.username &&
+      myGames.some((g) => g.id === s.gameId)
+  );
+
+  return `
+    <section class="panel" style="margin-top: 28px">
+      <div class="panel-header">
+        <h2>Game scores</h2>
+        <span class="mini-label">MANAGER</span>
+      </div>
+      <p class="form-help">Submit a score after a game, or respond to an opposing manager's submission.</p>
+      <div class="upcoming-list">
+        ${myGames.map((g) => `
+          <div class="upcoming-game">
+            <strong>${e(team(g.awayId).name)} vs ${e(team(g.homeId).name)}</strong>
+            <button class="button secondary small"
+              data-action="submit-score" data-id="${e(g.id)}">
+              Submit score
+            </button>
+          </div>
+        `).join("")}
+        ${pending.map((s) => `
+          <div class="upcoming-game">
+            <strong>${e(team(myGames.find((g) => g.id === s.gameId).awayId).name)}
+              ${s.submittedAwayScore} – ${s.submittedHomeScore}
+              ${e(team(myGames.find((g) => g.id === s.gameId).homeId).name)}</strong>
+            <div>
+            <button class="button primary small"
+              data-action="confirm-score" data-id="${e(s.id)}">
+              Confirm score
+            </button>
+            <button class="button secondary small"
+              data-action="respond-score" data-id="${e(s.id)}">
+              Dispute score
+            </button>
+          </div>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+function commissionerDisputesSection() {
+  if (!commissioner()) return "";
+
+  const disputed = league.scoreSubmissions.filter(
+    (s) => s.status === "DISPUTED"
+  );
+
+  return `
+    <section class="panel" style="margin-top: 28px">
+      <div class="panel-header">
+        <h2>Disputed scores</h2>
+        <span class="mini-label">${disputed.length} DISPUTED</span>
+      </div>
+      <div class="upcoming-list">
+        ${disputed.map((s) => {
+          const game = league.games.find((g) => g.id === s.gameId);
+          if (!game) return "";
+
+          return `
+            <div class="upcoming-game">
+              <strong>
+                ${e(team(game.awayId).name)}
+                ${s.submittedAwayScore} – ${s.submittedHomeScore}
+                ${e(team(game.homeId).name)}
+              </strong>
+              <p class="form-help">
+                Submitted by: ${e(s.submittedBy)}
+                <br>
+                Opposing manager's score:
+                ${s.disputedAwayScore} – ${s.disputedHomeScore}
+              </p>
+              <button class="button primary small"
+                data-action="resolve-score" data-id="${e(s.id)}">
+                Resolve dispute
+              </button>
+            </div>
+          `;
+        }).join("")}
+        ${disputed.length === 0
+          ? '<p class="muted">No disputed scores need attention.</p>'
+          : ""}
+      </div>
+    </section>
+  `;
 }
 function teamsPage() {
   return (
@@ -355,6 +453,156 @@ function gameModal(id, tournament = false) {
   );
   syncScoreFields();
 }
+function submitScoreModal(gameId) {
+  const game = league.games.find((g) => g.id === gameId);
+  if (!game) return;
+
+  openModal(
+    "Submit game score",
+    `<p class="form-help">
+      ${e(team(game.awayId).name)} vs ${e(team(game.homeId).name)}.
+      Enter the final scores from your game.
+    </p>
+    <div class="form-grid">
+      <label>Away score
+        <input name="awayScore" type="number" min="0" max="200" required>
+      </label>
+      <label>Home score
+        <input name="homeScore" type="number" min="0" max="200" required>
+      </label>
+    </div>`,
+    "Submit score",
+    async (form) => {
+      const input = Object.fromEntries(new FormData(form));
+
+      await api(`/games/${gameId}/scores`, {
+        method: "POST",
+        body: JSON.stringify({
+          homeScore: Number(input.homeScore),
+          awayScore: Number(input.awayScore)
+        })
+      });
+
+      return "Score submitted. Waiting for the opposing manager.";
+    }
+  );
+}
+function respondScoreModal(submissionId) {
+  const submission = league.scoreSubmissions.find(
+    (s) => s.id === submissionId
+  );
+
+  if (!submission) return;
+
+  const game = league.games.find(
+    (g) => g.id === submission.gameId
+  );
+
+  if (!game) return;
+
+  openModal(
+    "Review submitted score",
+    `<p class="form-help">
+      ${e(team(game.awayId).name)}:
+      <strong>${submission.submittedAwayScore}</strong>
+      –
+      <strong>${submission.submittedHomeScore}</strong>
+      ${e(team(game.homeId).name)}
+    </p>
+    <p class="form-help">
+      Confirm the score or enter the score you believe is correct.
+    </p>
+    <div class="form-grid">
+      <label>Away score
+        <input name="awayScore" type="number" min="0" max="200" required>
+      </label>
+      <label>Home score
+        <input name="homeScore" type="number" min="0" max="200" required>
+      </label>
+    </div>`,
+    "Dispute score",
+    async (form) => {
+      const input = Object.fromEntries(new FormData(form));
+
+      await api(`/scores/${submissionId}/respond`, {
+        method: "POST",
+        body: JSON.stringify({
+          confirm: false,
+          disputedHomeScore: Number(input.homeScore),
+          disputedAwayScore: Number(input.awayScore)
+        })
+      });
+
+      return "Score disputed. The commissioner can now review it.";
+    }
+  );
+}
+function confirmScore(submissionId) {
+  openModal(
+    "Confirm game score",
+    `<p class="form-help">
+      Are you sure the submitted score is correct?
+      Confirming it will make the result official.
+    </p>`,
+    "Confirm score",
+    async () => {
+      await api(`/scores/${submissionId}/respond`, {
+        method: "POST",
+        body: JSON.stringify({
+          confirm: true
+        })
+      });
+
+      return "Score confirmed. The game is now final.";
+    }
+  );
+}
+function resolveScoreModal(submissionId) {
+  const submission = league.scoreSubmissions.find(
+    (s) => s.id === submissionId
+  );
+
+  if (!submission) return;
+
+  const game = league.games.find(
+    (g) => g.id === submission.gameId
+  );
+
+  if (!game) return;
+
+  openModal(
+    "Resolve disputed score",
+    `<p class="form-help">
+      Original submission:
+      ${submission.submittedAwayScore} – ${submission.submittedHomeScore}
+      <br>
+      Disputed score:
+      ${submission.disputedAwayScore} – ${submission.disputedHomeScore}
+    </p>
+    <div class="form-grid">
+      <label>Away score
+        <input name="awayScore" type="number" min="0" max="200" required>
+      </label>
+      <label>Home score
+        <input name="homeScore" type="number" min="0" max="200" required>
+      </label>
+    </div>`,
+    "Resolve dispute",
+    async (form) => {
+      const input = Object.fromEntries(new FormData(form));
+
+      await api(`/scores/${submissionId}/resolve`, {
+        method: "POST",
+        body: JSON.stringify({
+          homeScore: Number(input.homeScore),
+          awayScore: Number(input.awayScore)
+        })
+      });
+
+      return "Dispute resolved. The official result has been updated.";
+    }
+  );
+}
 function syncScoreFields() {
   const final = $("#game-status").value === "FINAL";
   $("#score-fields").hidden = !final;
@@ -385,6 +633,10 @@ document.addEventListener("click", async (event) => {
   const { action, id, value } = button.dataset;
   try {
     if (action === "login") loginModal();
+    if (action === "submit-score") submitScoreModal(id);
+    if (action === "respond-score") respondScoreModal(id);
+    if (action === "confirm-score") confirmScore(id);
+    if (action === "resolve-score") resolveScoreModal(id);
     if (action === "logout") {
       await api("/logout", { method: "POST" });
       await refresh();

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.*;
+import org.springframework.scheduling.annotation.Scheduled;
 
 @Service
 public class LeagueService {
@@ -20,6 +21,19 @@ public class LeagueService {
                             String phase, String status, Integer homeScore, Integer awayScore) {}
     public record TeamInput(String name, String abbreviation, String color, String manager) {}
     public record PlayerInput(String name, String position, Integer number) {}
+    public record ScoreSubmission(
+        String id,
+        String gameId,
+        String submittedBy,
+        Integer submittedHomeScore,
+        Integer submittedAwayScore,
+        Integer disputedHomeScore,
+        Integer disputedAwayScore,
+        String status,
+        LocalDateTime submittedAt,
+        LocalDateTime confirmedAt,
+        String resolvedBy
+    ) {}
     private final JdbcTemplate db;
     public LeagueService(JdbcTemplate db) { this.db = db; }
 
@@ -31,6 +45,26 @@ public class LeagueService {
     }
     public List<Game> games() {
         return db.query("SELECT * FROM games ORDER BY kickoff, id", (r, n) -> new Game(r.getString("id"), r.getString("home_id"), r.getString("away_id"), r.getString("kickoff"), r.getString("location"), r.getInt("week"), r.getString("phase"), r.getString("status"), r.getObject("home_score", Integer.class), r.getObject("away_score", Integer.class)));
+    }
+    public List<ScoreSubmission> scoreSubmissions() {
+        return db.query(
+            "SELECT * FROM score_submissions ORDER BY submitted_at DESC",
+            (r, n) -> new ScoreSubmission(
+                r.getString("id"),
+                r.getString("game_id"),
+                r.getString("submitted_by"),
+                r.getObject("submitted_home_score", Integer.class),
+                r.getObject("submitted_away_score", Integer.class),
+                r.getObject("disputed_home_score", Integer.class),
+                r.getObject("disputed_away_score", Integer.class),
+                r.getString("status"),
+                r.getTimestamp("submitted_at").toLocalDateTime(),
+                r.getTimestamp("confirmed_at") == null
+                    ? null
+                    : r.getTimestamp("confirmed_at").toLocalDateTime(),
+                r.getString("resolved_by")
+            )
+        );
     }
     public List<Standing> standings() {
         List<Game> games = games();
@@ -58,6 +92,220 @@ public class LeagueService {
         return teams().stream().filter(t -> t.id().equals(id)).findFirst()
             .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Team not found."));
     }
+    public Game requireGame(String id) {
+        return games().stream().filter(g -> g.id().equals(id)).findFirst()
+            .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Game not found."));
+    }
+    @Transactional
+    public void submitScore(String gameId, String username, String teamId, Integer homeScore, Integer awayScore) {
+        Game game = requireGame(gameId);
+
+        // Checks the manager belongs to one of the teams playing
+        if (!game.homeId().equals(teamId) && !game.awayId().equals(teamId)) {
+            fail("You can only submit scores for games involving your team.");
+        }
+
+        // Checks game has started
+        LocalDateTime kickoff = LocalDateTime.parse(game.kickoff());
+        if (LocalDateTime.now().isBefore(kickoff)) {
+            fail("You cannot submit a score before the game starts.");
+        }
+        // Validate the scores
+        if (homeScore == null || awayScore == null || homeScore < 0 || awayScore < 0 || homeScore > 200 || awayScore > 200) {
+            fail("Scores must be whole numbers between 0 and 200.");
+        }
+        // Checks for winner
+        if (!game.phase().equals("REGULAR") && homeScore.equals(awayScore)) {
+            fail("Tournament games must have a winner.");
+        }
+        //Checks if the game has already been finalized
+        if (game.status().equals("FINAL")) {
+            fail("This game already has an official result.");
+        }
+
+        // Prevents multiple pending or disputed submissions of the same game
+        Integer existing = db.queryForObject(
+            "SELECT COUNT(*) FROM score_submissions WHERE game_id = ? AND status IN ('PENDING', 'DISPUTED')",
+            Integer.class,
+            gameId
+        );
+
+        if (existing != null && existing > 0) {
+            fail("This game already has a pending or disputed score submission.");
+        }
+
+        db.update(
+            "INSERT INTO score_submissions (id, game_id, submitted_by, submitted_home_score, submitted_away_score, status, submitted_at) VALUES (?, ?, ?, ?, ?, 'PENDING', ?)",
+            UUID.randomUUID().toString(),
+            gameId,
+            username,
+            homeScore,
+            awayScore,
+            LocalDateTime.now()
+        );
+    }
+    @Transactional
+    public void respondToScore(String submissionId, String username, String teamId, boolean confirm, Integer disputedHomeScore, Integer disputedAwayScore) {
+
+        ScoreSubmission submission = db.query(
+            "SELECT * FROM score_submissions WHERE id = ?",
+            (r, n) -> new ScoreSubmission(
+                r.getString("id"),
+                r.getString("game_id"),
+                r.getString("submitted_by"),
+                r.getObject("submitted_home_score", Integer.class),
+                r.getObject("submitted_away_score", Integer.class),
+                r.getObject("disputed_home_score", Integer.class),
+                r.getObject("disputed_away_score", Integer.class),
+                r.getString("status"),
+                r.getTimestamp("submitted_at").toLocalDateTime(),
+                r.getTimestamp("confirmed_at") == null
+                    ? null
+                    : r.getTimestamp("confirmed_at").toLocalDateTime(),
+                r.getString("resolved_by")
+            ),
+            submissionId
+        ).stream().findFirst().orElseThrow(
+            () -> new ResponseStatusException(NOT_FOUND, "Score submission not found.")
+        );
+
+        Game game = requireGame(submission.gameId());
+
+        // Only the opposing team's manager can respond.
+        if (!game.homeId().equals(teamId) && !game.awayId().equals(teamId)) {
+            fail("You are not part of this game.");
+        }
+
+        Team team = requireTeam(teamId);
+        if (!team.manager().equalsIgnoreCase(username)) {
+            fail("Only your team's manager can respond.");
+        }
+        if (submission.submittedBy().equalsIgnoreCase(username)) {
+            fail("You cannot respond to your own score submission.");
+        }
+
+        if (!submission.status().equals("PENDING")) {
+            fail("This score submission is no longer pending.");
+        }
+        if (confirm) {
+            db.update(
+                "UPDATE score_submissions SET status = 'CONFIRMED', confirmed_at = ? WHERE id = ?", LocalDateTime.now(), submissionId
+            );
+
+            db.update(
+                "UPDATE games SET status = 'FINAL', home_score = ?, away_score = ? WHERE id = ?",
+                submission.submittedHomeScore(),
+                submission.submittedAwayScore(),
+                submission.gameId()
+            );
+        } else {
+            if (disputedHomeScore == null || disputedAwayScore == null
+                || disputedHomeScore < 0 || disputedAwayScore < 0
+                || disputedHomeScore > 200 || disputedAwayScore > 200) {
+                fail("Disputed scores must be between 0 and 200.");
+            }
+
+            if (!game.phase().equals("REGULAR")
+                && disputedHomeScore.equals(disputedAwayScore)) {
+                fail("Tournament games must have a winner.");
+            }
+
+            db.update(
+                "UPDATE score_submissions SET status = 'DISPUTED', disputed_home_score = ?, disputed_away_score = ? WHERE id = ?",
+                disputedHomeScore, disputedAwayScore, submissionId
+            );
+        }
+    }
+    @Scheduled(fixedDelay = 60000)
+    @Transactional
+    public void autoConfirmExpiredSubmissions() {
+        LocalDateTime deadline = LocalDateTime.now().minusHours(24);
+
+        List<ScoreSubmission> expired = db.query(
+            "SELECT * FROM score_submissions WHERE status = 'PENDING' AND submitted_at <= ?",
+            (r, n) -> new ScoreSubmission(
+                r.getString("id"),
+                r.getString("game_id"),
+                r.getString("submitted_by"),
+                r.getObject("submitted_home_score", Integer.class),
+                r.getObject("submitted_away_score", Integer.class),
+                r.getObject("disputed_home_score", Integer.class),
+                r.getObject("disputed_away_score", Integer.class),
+                r.getString("status"),
+                r.getTimestamp("submitted_at").toLocalDateTime(),
+                r.getTimestamp("confirmed_at") == null
+                    ? null
+                    : r.getTimestamp("confirmed_at").toLocalDateTime(),
+                r.getString("resolved_by")
+            ),
+            deadline
+        );
+
+        for (ScoreSubmission submission : expired) {
+            db.update(
+                "UPDATE games SET status = 'FINAL', home_score = ?, away_score = ? WHERE id = ? AND status = 'SCHEDULED'",
+                submission.submittedHomeScore(),
+                submission.submittedAwayScore(),
+                submission.gameId()
+            );
+
+            db.update(
+                "UPDATE score_submissions SET status = 'CONFIRMED', confirmed_at = ? WHERE id = ? AND status = 'PENDING'",
+                LocalDateTime.now(),
+                submission.id()
+            );
+        }
+    }
+    @Transactional
+    public void resolveDisputedScore(String submissionId, String commissioner, Integer homeScore, Integer awayScore) {
+
+        ScoreSubmission submission = db.query(
+            "SELECT * FROM score_submissions WHERE id = ?",
+            (r, n) -> new ScoreSubmission(
+                r.getString("id"),
+                r.getString("game_id"),
+                r.getString("submitted_by"),
+                r.getObject("submitted_home_score", Integer.class),
+                r.getObject("submitted_away_score", Integer.class),
+                r.getObject("disputed_home_score", Integer.class),
+                r.getObject("disputed_away_score", Integer.class),
+                r.getString("status"),
+                r.getTimestamp("submitted_at").toLocalDateTime(),
+                r.getTimestamp("confirmed_at") == null
+                    ? null
+                    : r.getTimestamp("confirmed_at").toLocalDateTime(),
+                r.getString("resolved_by")
+            ),
+            submissionId
+        ).stream().findFirst().orElseThrow(
+            () -> new ResponseStatusException(NOT_FOUND, "Score submission not found.")
+        );
+
+        if (!submission.status().equals("DISPUTED")) {
+            fail("Only disputed scores can be resolved.");
+        }
+
+        Game game = requireGame(submission.gameId());
+
+        if (homeScore == null || awayScore == null
+                || homeScore < 0 || awayScore < 0
+                || homeScore > 200 || awayScore > 200) {
+            fail("Scores must be whole numbers between 0 and 200.");
+        }
+
+        if (!game.phase().equals("REGULAR") && homeScore.equals(awayScore)) {
+            fail("Tournament games must have a winner.");
+        }
+
+        db.update(
+            "UPDATE games SET status = 'FINAL', home_score = ?, away_score = ? WHERE id = ?", homeScore, awayScore, game.id()
+        );
+
+        db.update(
+            "UPDATE score_submissions SET status = 'RESOLVED', confirmed_at = ?, resolved_by = ? WHERE id = ?", LocalDateTime.now(), commissioner, submissionId
+        );
+    }
+
     @Transactional
     public void createTeam(TeamInput input) {
         String name = text(input.name(), "Team name", 60);
