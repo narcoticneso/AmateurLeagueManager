@@ -217,7 +217,7 @@ function schedulePage() {
       .join(
         "",
       )}<select id="week-filter" aria-label="Filter by week"><option value="ALL">All weeks</option>${weeks.map((w) => `<option value="${w}" ${String(w) === weekFilter ? "selected" : ""}>Week ${w}</option>`).join("")}</select></div><div class="game-grid">${games.map((g) => upcomingGame(g, true)).join("")}</div>${games.length ? "" : empty("No games here yet", "Choose another filter or schedule a new matchup.")}`
-  ) + scoreSubmissionSection(); + commissionerDisputesSection();
+  ) + scoreSubmissionSection() + commissionerDisputesSection();
 }
 function scoreSubmissionSection() {
   if (!session.username || session.view !== "MANAGER") return "";
