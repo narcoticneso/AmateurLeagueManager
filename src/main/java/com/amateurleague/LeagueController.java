@@ -19,7 +19,13 @@ public class LeagueController {
 
     @GetMapping("/state")
     public Map<String, Object> state() {
-        return Map.of("teams", league.teams(), "players", league.players(), "games", league.games(), "standings", league.standings());
+        return Map.of(
+            "teams", league.teams(),
+            "players", league.players(),
+            "games", league.games(),
+            "standings", league.standings(),
+            "scoreSubmissions", league.scoreSubmissions()
+        );
     }
     @GetMapping("/session")
     public Map<String, Object> session(Principal user, HttpSession session, CsrfToken csrf) {
@@ -49,6 +55,77 @@ public class LeagueController {
     public void createGame(@RequestBody LeagueService.GameInput input, HttpSession session) {
         commissioner(session); league.saveGame(null, input);
     }
+    @PostMapping("/games/{gameId}/scores")
+    public void submitScore(
+            @PathVariable String gameId,
+            @RequestBody Map<String, Integer> input,
+            HttpSession session,
+            Principal user) {
+
+        manager(session);
+
+        String teamId = TEAMS.get(user.getName());
+        if (teamId == null) {
+            throw new ResponseStatusException(FORBIDDEN, "You do not manage a team.");
+        }
+
+        league.submitScore(
+            gameId,
+            user.getName(),
+            teamId,
+            input.get("homeScore"),
+            input.get("awayScore")
+        );
+    }
+    @PostMapping("/scores/{submissionId}/respond")
+    public void respondToScore(
+            @PathVariable String submissionId,
+            @RequestBody Map<String, Object> input,
+            HttpSession session,
+            Principal user) {
+
+        manager(session);
+
+        String teamId = TEAMS.get(user.getName());
+        if (teamId == null) {
+            throw new ResponseStatusException(FORBIDDEN, "You do not manage a team.");
+        }
+
+        boolean confirm = Boolean.TRUE.equals(input.get("confirm"));
+
+        Integer disputedHomeScore = input.get("disputedHomeScore") instanceof Number
+                ? ((Number) input.get("disputedHomeScore")).intValue()
+                : null;
+
+        Integer disputedAwayScore = input.get("disputedAwayScore") instanceof Number
+                ? ((Number) input.get("disputedAwayScore")).intValue()
+                : null;
+
+        league.respondToScore(
+            submissionId,
+            user.getName(),
+            teamId,
+            confirm,
+            disputedHomeScore,
+            disputedAwayScore
+        );
+    }
+    @PostMapping("/scores/{submissionId}/resolve")
+    public void resolveDisputedScore(
+            @PathVariable String submissionId,
+            @RequestBody Map<String, Integer> input,
+            HttpSession session,
+            Principal user) {
+
+        commissioner(session);
+
+        league.resolveDisputedScore(
+            submissionId,
+            user.getName(),
+            input.get("homeScore"),
+            input.get("awayScore")
+        );
+    }
     @PutMapping("/games/{id}")
     public void editGame(@PathVariable String id, @RequestBody LeagueService.GameInput input, HttpSession session) {
         commissioner(session); league.saveGame(id, input);
@@ -56,6 +133,9 @@ public class LeagueController {
     private String view(HttpSession session) { return Objects.toString(session.getAttribute("view"), "COMMISSIONER"); }
     private void commissioner(HttpSession session) {
         if (!view(session).equals("COMMISSIONER")) throw new ResponseStatusException(FORBIDDEN, "Switch to commissioner view to manage games and teams.");
+    }
+    private void manager(HttpSession session) {
+        if (!view(session).equals("MANAGER")) throw new ResponseStatusException(FORBIDDEN, "Switch to manager view to submit scores.");
     }
     private void rosterPermission(String teamId, HttpSession session, Principal user) {
         if (view(session).equals("COMMISSIONER")) return;

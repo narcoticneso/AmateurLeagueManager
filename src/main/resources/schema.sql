@@ -26,3 +26,16 @@ CREATE TABLE IF NOT EXISTS games (
   away_score INTEGER,
   CHECK(home_id <> away_id)
 );
+CREATE TABLE IF NOT EXISTS score_submissions (
+  id VARCHAR(40) PRIMARY KEY,
+  game_id VARCHAR(40) NOT NULL REFERENCES games(id),
+  submitted_by VARCHAR(60) NOT NULL,
+  submitted_home_score INTEGER NOT NULL CHECK (submitted_home_score BETWEEN 0 and 200),
+  submitted_away_score INTEGER NOT NULL CHECK (submitted_away_score BETWEEN 0 and 200),
+  disputed_home_score INTEGER CHECK (disputed_home_score BETWEEN 0 and 200),
+  disputed_away_score INTEGER CHECK (disputed_away_score BETWEEN 0 and 200),
+  status varchar(12) NOT NULL CHECK (status in ('PENDING', 'CONFIRMED', 'DISPUTED', 'RESOLVED')),
+  submitted_at TIMESTAMP NOT NULL,
+  confirmed_at TIMESTAMP,
+  resolved_by VARCHAR(60)
+);
