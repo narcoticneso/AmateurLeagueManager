@@ -1,4 +1,4 @@
-param([ValidateSet('run', 'test', 'package')][string]$Task = 'run')
+param([ValidateSet('run', 'dev', 'test', 'package')][string]$Task = 'run')
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
@@ -7,12 +7,12 @@ try {
         if (-not $localJdk) { throw 'Install a Java 21 JDK and set JAVA_HOME, then run this script again.' }
         $env:JAVA_HOME = $localJdk.FullName
     }
-    $mavenGoal = if ($Task -eq 'run') { 'spring-boot:run' } else { $Task }
+    $mavenArgs = switch ($Task) { 'run' { @('spring-boot:run') } 'dev' { @('spring-boot:run', '-Pdev') } default { @($Task) } }
     $localMaven = Join-Path $PSScriptRoot '.tools/apache-maven-3.9.9/bin/mvn.cmd'
     if (Test-Path -LiteralPath $localMaven) {
-        & $localMaven '--no-transfer-progress' '-Dmaven.repo.local=.tools/m2' $mavenGoal
+        & $localMaven '--no-transfer-progress' '-Dmaven.repo.local=.tools/m2' @mavenArgs
     } else {
-        & '.\mvnw.cmd' '--no-transfer-progress' $mavenGoal
+        & '.\mvnw.cmd' '--no-transfer-progress' @mavenArgs
     }
     $result = $LASTEXITCODE
 } finally { Pop-Location }

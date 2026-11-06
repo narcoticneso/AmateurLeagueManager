@@ -1,0 +1,46 @@
+{
+  "name": "amateur-league-manager-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "api-types": "openapi-typescript ../target/openapi.json --properties-required-by-default -o src/lib/api-schema.d.ts",
+    "dev": "npm run api-types && vite",
+    "check": "npm run api-types && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "build": "npm run check && vite build",
+    "format": "prettier --config .prettierrc --write . ../src",
+    "format:check": "prettier --config .prettierrc --check . ../src",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@internationalized/date": "^3.12.4",
+    "@lucide/svelte": "^1.69.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tailwindcss/vite": "^4.3.4",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^24.19.2",
+    "bits-ui": "^2.20.6",
+    "clsx": "^2.1.1",
+    "eslint": "^10.14.0",
+    "eslint-plugin-svelte": "^3.24.0",
+    "globals": "^17.14.0",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.9.10",
+    "prettier-plugin-java": "^2.11.0",
+    "prettier-plugin-svelte": "^4.1.1",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "tailwind-merge": "^3.7.0",
+    "tailwind-variants": "^3.3.1",
+    "tailwindcss": "^4.3.4",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^8.3.6"
+  },
+  "allowScripts": {
+    "fsevents": false
+  }
+}

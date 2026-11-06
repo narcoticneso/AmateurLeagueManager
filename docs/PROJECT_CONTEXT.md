@@ -1,6 +1,6 @@
 # Amateur League Manager context
 
-Last updated: November 3, 2026.
+Last updated: November 5, 2026.
 
 ## Standing collaboration rule
 
@@ -12,7 +12,7 @@ Last updated: November 3, 2026.
 - Start with one league and one active season, regular-season games, and one postseason tournament per season.
 - Manual scheduling and manual tournament advancement.
 - Keep the first version simple; the original 34 user stories are a flexible backlog rather than mandatory initial scope.
-- Use Java for the backend. The frontend is plain HTML, CSS, and JavaScript.
+- Use Java for the backend. The frontend is Svelte 5 + TypeScript with Tailwind and shadcn-svelte, built into the jar by Maven.
 - Visual direction: fantasy-football-inspired dark backgrounds, green highlights, matchup cards, roster tables, and league standings, adapted for desktop and mobile browsers.
 - Public-facing descriptions must not call it a senior project or mention CS 498.
 
@@ -27,7 +27,10 @@ Developers: Rudra, Ryan, Lucas, Nebojsa, and Kiara. Each has a separate developm
 
 ## Current implementation
 
-- Java 21, Spring Boot 4.0.9, Maven wrapper, Spring Security sessions and CSRF protection, Spring JDBC, and a persistent local H2 database.
+- Java 21, Spring Boot 4.0.9, Maven wrapper, Spring Security sessions and CSRF protection, Spring JDBC, and a persistent local H2 database with Flyway migrations.
+- Maven downloads Node.js and builds the frontend, so only Java has to be installed. TypeScript types for the API are generated from the Java code on every build.
+- Code checks are strict and enforced by `mvnw verify`: Prettier formats both Java (prettier-plugin-java) and the frontend (`mvnw -Pformat`); Checkstyle (braces required) and Error Prone with warnings as errors for Java; strict TypeScript, svelte-check, and ESLint (`strictTypeChecked`, braces required) for the frontend.
+- Frontend unit and browser tests are out of scope.
 - Public dashboard, schedules/results, teams/rosters, standings, and postseason cup pages.
 - Fictional Oakwood Football sample season with six teams and basic player rosters.
 - Standings derive from final regular-season results; ties count as half a win. Tournament results do not affect regular-season standings.
@@ -39,10 +42,11 @@ Developers: Rudra, Ryan, Lucas, Nebojsa, and Kiara. Each has a separate developm
 
 - On this machine, `dev.ps1` uses the portable Java/Maven installations in ignored `.tools/` when needed.
 - On another machine, install Java 21 and run `mvnw.cmd spring-boot:run` on Windows or `sh ./mvnw spring-boot:run` on macOS/Linux. See the README for download links and setup steps.
+- For frontend work, `mvnw spring-boot:run -Pdev` also starts the Vite dev server on port 5173.
 - The configured default is `http://localhost:8080`; the `PORT` environment variable can override it. On November 3, the user's running server was verified on **8081**. Check the actual listener/startup output before diagnosing a connection issue.
 - Keep the server terminal open while using the website. Do not stop a server the user started merely to clean up a troubleshooting task.
 - Local demo usernames: `rudra`, `ryan`, `lucas`, `nebojsa`, `kiara`. The documented demo password is `neighborhood-demo`; environment variables can override it per account.
-- `.tools/`, `data/`, `target/`, logs, and `.env` remain ignored. Do not stage them or suggest including them in a commit.
+- `.tools/`, `data/`, `target/`, `frontend/node/`, `frontend/node_modules/`, logs, and `.env` remain ignored. Do not stage them or suggest including them in a commit.
 
 ## Deferred work
 

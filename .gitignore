@@ -8,3 +8,6 @@ data/
 .DS_Store
 tmp/
 .env
+frontend/node/
+frontend/node_modules/
+frontend/src/lib/api-schema.d.ts

@@ -1,0 +1,149 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --breakpoint-*: initial;
+  --breakpoint-sm: 681px;
+  --breakpoint-md: 951px;
+  --breakpoint-lg: 1151px;
+  --breakpoint-xl: 1500px;
+
+  --text-xs--line-height: normal;
+  --text-sm--line-height: normal;
+  --text-base--line-height: normal;
+
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+
+  --color-bg: #111411;
+  --color-sidebar: #151915;
+  --color-panel: #1a1e1a;
+  --color-panel-hover: #222822;
+  --color-surface: #1b2118;
+  --color-sunken: #181d17;
+  --color-field: #12180f;
+  --color-raised: #21271f;
+  --color-raised-hover: #2b3426;
+  --color-row-alt: #1e241c;
+  --color-row-hover: #273022;
+  --color-line: #2d342d;
+  --color-row-line: #2a3127;
+  --color-edge: #425136;
+  --color-green-edge: #4d633a;
+  --color-text: #f0f3ed;
+  --color-soft: #c5d0bb;
+  --color-muted: #9ba698;
+  --color-dim: #839079;
+  --color-faint: #5a6654;
+  --color-green: #b4ed62;
+  --color-green-hover: #c3f481;
+  --color-green-tint: #28351e;
+  --color-ink: #182211;
+  --color-danger: #f29b9b;
+  --color-error: #ffa6a6;
+  --color-overlay: #050a04b8;
+  --color-hero-from: #23351c;
+  --color-hero-via: #1d2819;
+  --color-hero-to: #172114;
+  --color-hero-stripe: #8baf70;
+  --color-alert-bg: #35231d;
+  --color-alert-edge: #785347;
+  --color-alert-text: #ffd8bf;
+
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-text);
+  --color-primary: var(--color-green);
+  --color-primary-foreground: var(--color-ink);
+  --color-secondary: var(--color-raised);
+  --color-secondary-foreground: var(--color-soft);
+  --color-accent: var(--color-row-hover);
+  --color-accent-foreground: var(--color-text);
+  --color-muted-foreground: var(--color-dim);
+  --color-border: var(--color-line);
+  --color-input: var(--color-edge);
+  --color-ring: var(--color-green);
+  --color-destructive: var(--color-danger);
+}
+
+@utility mini-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.65px;
+  color: var(--color-muted);
+}
+
+@utility green-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-green);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font:
+      14px "DM Sans",
+      system-ui,
+      sans-serif;
+  }
+  button,
+  a,
+  input,
+  select {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button,
+  a {
+    touch-action: manipulation;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--color-green);
+    outline-offset: 4px;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+  }
+  h1 {
+    font-size: 38px;
+    letter-spacing: 0.2px;
+    font-weight: 600;
+  }
+  h2 {
+    font-size: 25px;
+    font-weight: 600;
+  }
+  h3 {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  th {
+    text-align: left;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
