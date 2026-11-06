@@ -12,5 +12,5 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Run tests and package
+      - name: Build and test
         run: sh ./mvnw --batch-mode --no-transfer-progress verify

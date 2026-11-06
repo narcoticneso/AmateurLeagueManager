@@ -29,12 +29,12 @@ The first launch seeds a **fictional Oakwood Football league** with six teams, 3
 | Backend | Java 21, Spring Boot 4.0.9 |
 | API | Spring MVC REST controllers |
 | Sign-in | Spring Security, session cookies, CSRF protection |
-| Data | H2 file database, Spring JDBC, SQL schema |
-| Frontend | HTML, CSS, plain JavaScript |
-| Build | Maven 3.9.9 wrapper |
+| Data | H2 file database, Spring JDBC, Flyway |
+| Frontend | Svelte 5, TypeScript, Vite, Tailwind 4 |
+| Build | Maven 3.9.9 wrapper (also builds the frontend) |
 | Tests | JUnit with a real HTTP server and an isolated in-memory database |
 
-One application serves both the web pages and the API. There is no Node.js build, separate frontend server, Docker requirement, or external database to configure. Optional Google Fonts requests enhance the typography; system font fallbacks work offline.
+One application serves both the web pages and the API. Maven downloads its own Node.js and builds the frontend into the jar, so there's no separate frontend server, Docker, or external database to set up. Optional Google Fonts requests enhance the typography; system font fallbacks work offline.
 
 ## Run locally
 
@@ -53,7 +53,7 @@ $env:JAVA_HOME
 
 Both version commands should report Java 21. `JAVA_HOME` should point to the JDK installation folder, not its `bin` subfolder. If Java is missing or an older version appears, check the installer's PATH and JAVA_HOME options and open a new terminal again.
 
-**Java is the only development tool you must install separately.** The included Maven wrapper downloads Maven and project dependencies on its first run, so that first run needs internet access. You do not need to install Maven, Spring Boot, H2, Node.js, or Docker yourself. Git is optional if you download the project as a ZIP.
+**Java is the only development tool you must install separately.** The included Maven wrapper downloads Maven, Node.js, and project dependencies on its first run, so that first run needs internet access. You do not need to install Maven, Spring Boot, H2, Node.js, or Docker yourself. Git is optional if you download the project as a ZIP.
 
 ### Start the website
 
@@ -100,6 +100,24 @@ To choose another port:
 $env:PORT = '8081'
 .\mvnw.cmd spring-boot:run
 ```
+
+### Frontend development
+
+Start the app with the `dev` profile to get hot reload:
+
+```powershell
+.\mvnw.cmd spring-boot:run -Pdev
+```
+
+```bash
+sh ./mvnw spring-boot:run -Pdev
+```
+
+Then open **http://localhost:5173**. `Ctrl+C` stops both servers. Java changes still need a restart.
+
+Frontend code is in `frontend/src/`, and the theme (colors, fonts, breakpoints) is in `frontend/src/app.css`. Before committing, run `.\mvnw.cmd -Pformat` (or `sh ./mvnw -Pformat`) to format the Java and frontend code with Prettier. CI fails on unformatted code, compiler or Error Prone warnings, type errors, ESLint errors, and any `if`/`else`/`for`/`while` without braces (formatting won't add them for you).
+
+The build generates TypeScript types for the API from the Java code, so they never go stale. If a record field can be `null`, mark it with `@Schema(types = {"integer", "null"})` so its type allows `null`.
 
 ## Accounts and views
 
@@ -153,12 +171,11 @@ src/main/java/com/amateurleague/
   DemoData.java             Fictional season seeded only into an empty database
 src/main/resources/
   application.properties   Local server and database configuration
-  schema.sql               Teams, players, and games tables
-  static/
-    index.html             Page shell and modal
-    styles.css             Responsive dark sports interface
-    app.js                 Views, forms, API calls, and role switcher
-    favicon.svg            Original football mark
+  db/migration/            Database migrations
+frontend/
+  src/App.svelte           Layout and page switching
+  src/app.css              Theme
+  src/lib/                 Pages, forms, components, API helper
 src/test/java/com/amateurleague/
   LeagueApplicationTests.java
 data/                      Local H2 files (ignored)
@@ -166,6 +183,8 @@ data/                      Local H2 files (ignored)
 ```
 
 The database is stored under `data/` relative to the working directory. Run commands from the repository root. To preserve a season, stop the app before backing up `data/`. To start over, stop the app and move `data/` to a backup location; the next launch creates and seeds a fresh database. Test runs use a separate in-memory database and do not modify the local season.
+
+To change the database, add a new file to `src/main/resources/db/migration/` (`V2__add_leagues.sql`, and so on) instead of editing an old one.
 
 ## Test and package
 
@@ -177,7 +196,7 @@ java -jar target/amateur-league-manager-0.1.0-SNAPSHOT.jar
 
 Use `sh ./mvnw` in place of `.\mvnw.cmd` on macOS/Linux. On the original development machine, `.\dev.ps1 test` and `.\dev.ps1 package` also work.
 
-Tests cover public read access, CSRF enforcement, all five logins and view changes, manager/player restrictions, team creation, score updates, standings calculations, invalid game input, duplicate jersey numbers, and tournament progression. GitHub Actions runs the same Maven verification on pushes and pull requests.
+Tests cover public read access, CSRF enforcement, all five logins and view changes, manager/player restrictions, team creation, score updates, standings calculations, invalid game input, duplicate jersey numbers, and tournament progression. GitHub Actions runs `mvnw verify` on pushes and pull requests, which also checks formatting with Prettier and runs Checkstyle (braces), Error Prone, svelte-check, and ESLint in strict mode.
 
 ## Small next steps
 

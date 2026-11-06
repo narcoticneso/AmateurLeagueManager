@@ -1,0 +1,15 @@
+{
+  "printWidth": 250,
+  "endOfLine": "auto",
+  "plugins": ["prettier-plugin-svelte", "prettier-plugin-java", "prettier-plugin-tailwindcss"],
+  "tailwindStylesheet": "./src/app.css",
+  "tailwindFunctions": ["cn"],
+  "overrides": [
+    {
+      "files": "*.java",
+      "options": {
+        "tabWidth": 4
+      }
+    }
+  ]
+}
