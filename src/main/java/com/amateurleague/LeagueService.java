@@ -13,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import java.nio.ByteBuffer;
 
 @Service
 public class LeagueService {
@@ -66,12 +67,64 @@ public class LeagueService {
         @Schema(types = { "string", "null" }) String resolvedBy
     ) {}
 
+    public record ProfilePicture(ByteBuffer data, String contentType) {}
+
     private static final ZoneId LEAGUE_TIME = ZoneId.of("America/New_York");
     private final JdbcTemplate db;
 
     public LeagueService(JdbcTemplate db) {
         this.db = db;
     }
+
+    @Transactional
+public void saveProfilePicture(String username, byte[] image, String contentType) {
+    if (contentType == null || !Set.of(
+        "image/jpeg", "image/png", "image/gif", "image/webp"
+    ).contains(contentType)) {
+        fail("Please upload a JPEG, PNG, GIF, or WebP image.");
+    }
+    if (image == null || image.length == 0) {
+        fail("Please select an image.");
+    }
+
+    if (image.length > 5 * 1024 * 1024) {
+        fail("Profile pictures must be smaller than 5 MB.");
+    }
+
+    if (!Set.of("image/jpeg", "image/png", "image/gif", "image/webp")
+            .contains(contentType)) {
+        fail("Please upload a JPEG, PNG, GIF, or WebP image.");
+    }
+
+    int updated = db.update(
+        "UPDATE user_profiles SET profile_picture = ?, image_content_type = ? WHERE username = ?",
+        image,
+        contentType,
+        username
+    );
+
+    if (updated == 0) {
+        db.update(
+            "INSERT INTO user_profiles (username, profile_picture, image_content_type) VALUES (?, ?, ?)",
+            username,
+            image,
+            contentType
+        );
+    }
+}
+
+public ProfilePicture getProfilePicture(String username) {
+    List<ProfilePicture> pictures = db.query(
+        "SELECT profile_picture, image_content_type FROM user_profiles WHERE username = ?",
+        (r, n) -> new ProfilePicture(
+            ByteBuffer.wrap(r.getBytes("profile_picture")),
+            r.getString("image_content_type")
+        ),
+        username
+    );
+
+    return pictures.stream().findFirst().orElse(null);
+}
 
     public List<Team> teams() {
         return db.query("SELECT * FROM teams ORDER BY name", (r, n) -> new Team(r.getString("id"), r.getString("name"), r.getString("abbreviation"), r.getString("color"), r.getString("manager")));

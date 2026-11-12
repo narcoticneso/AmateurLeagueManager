@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api")
@@ -142,4 +144,48 @@ public class LeagueController {
     public ResponseEntity<ErrorMessage> conflict(DataIntegrityViolationException error) {
         return ResponseEntity.status(CONFLICT).body(new ErrorMessage("That name or jersey number is already in use. Refresh and try again."));
     }
+
+    @PostMapping(
+    value = "/profile-picture",
+    consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+)
+public ResponseEntity<Void> uploadProfilePicture(
+    @RequestParam("file") MultipartFile file,
+    Principal user
+) throws java.io.IOException {
+
+    if (file.isEmpty()) {
+        throw new ResponseStatusException(BAD_REQUEST, "Please select an image.");
+    }
+
+    league.saveProfilePicture(
+        user.getName(),
+        file.getBytes(),
+        file.getContentType()
+    );
+
+    return ResponseEntity.noContent().build();
+}
+
+    @GetMapping("/profile-picture")
+    public ResponseEntity<byte[]> getProfilePicture(Principal user) {
+
+        LeagueService.ProfilePicture picture =
+            league.getProfilePicture(user.getName());
+
+        if (picture == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(picture.contentType()))
+            .header("Cache-Control", "no-store")
+            .body(toByteArray(picture.data()));
+    }
+
+    private byte[] toByteArray(java.nio.ByteBuffer buffer) {
+    byte[] bytes = new byte[buffer.remaining()];
+    buffer.get(bytes);
+    return bytes;
+}
 }

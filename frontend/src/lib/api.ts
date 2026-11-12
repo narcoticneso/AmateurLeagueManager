@@ -21,11 +21,15 @@ export function useCsrfToken(token: string) {
   csrfToken = token;
 }
 
-export async function api<T = null>(path: string, method = "GET", body?: object | URLSearchParams): Promise<T> {
+export async function api<T = null>(path: string, method = "GET", body?: object | URLSearchParams | FormData): Promise<T> {
   const headers: Record<string, string> = {};
-  if (body && !(body instanceof URLSearchParams)) {
-    headers["Content-Type"] = "application/json";
-  }
+    if (
+        body &&
+        !(body instanceof URLSearchParams) &&
+        !(body instanceof FormData)
+    ) {
+        headers["Content-Type"] = "application/json";
+    }
   if (method !== "GET") {
     headers["X-CSRF-TOKEN"] = csrfToken;
   }
@@ -33,7 +37,10 @@ export async function api<T = null>(path: string, method = "GET", body?: object 
     method,
     credentials: "same-origin",
     headers,
-    body: body instanceof URLSearchParams ? body : body && JSON.stringify(body),
+      body:
+          body instanceof URLSearchParams || body instanceof FormData
+              ? body
+              : body && JSON.stringify(body),
   });
   if (!response.ok) {
     const detail = (await response.json().catch(() => null)) as {
@@ -45,4 +52,21 @@ export async function api<T = null>(path: string, method = "GET", body?: object 
   }
   const text = await response.text();
   return (text ? JSON.parse(text) : null) as T;
+}
+
+export async function apiBlob(path: string): Promise<Blob | null> {
+    const response = await fetch("/api" + path, {
+        method: "GET",
+        credentials: "same-origin",
+    });
+
+    if (response.status === 404) {
+        return null;
+    }
+
+    if (!response.ok) {
+        throw new Error("Unable to load profile picture.");
+    }
+
+    return await response.blob();
 }

@@ -1,11 +1,10 @@
 import js from "@eslint/js";
 import svelte from "eslint-plugin-svelte";
-import { defineConfig } from "eslint/config";
 import globals from "globals";
 import ts from "typescript-eslint";
 import svelteConfig from "./svelte.config.js";
 
-export default defineConfig(
+export default ts.config(
   { ignores: ["node/", "node_modules/", "src/lib/api-schema.d.ts"] },
   js.configs.recommended,
   ts.configs.strictTypeChecked,
