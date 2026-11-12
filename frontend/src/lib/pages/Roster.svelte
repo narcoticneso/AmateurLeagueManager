@@ -6,7 +6,7 @@
   import TeamBadge from "$lib/components/TeamBadge.svelte";
   import { Button } from "$lib/components/ui/button";
   import { positions } from "$lib/format";
-  import { app, canEditRoster, filters, openModal, playerCount, record, team } from "$lib/league.svelte";
+  import { app, canEditRoster, commissioner, filters, openModal, playerCount, record, team } from "$lib/league.svelte";
   import { numeric, panel, table, teamCell, upcomingRow } from "$lib/styles";
   import { cn } from "$lib/utils";
 
@@ -34,6 +34,9 @@
     {#snippet action()}
       {#if canEditRoster(id)}
         <Button onclick={() => openModal("new-player", id)}>＋ Add player</Button>
+      {/if}
+      {#if commissioner()}
+        <Button variant="secondary" onclick={() => openModal("assign-team-manager", id)}>Assign manager</Button>
       {/if}
     {/snippet}
   </PageHeading>
@@ -84,7 +87,10 @@
               </td>
               {#if canEditRoster(id)}
                 <td class={numeric}>
-                  <Button variant="danger" onclick={() => openModal("remove-player", p.id)}>Remove</Button>
+                  <div class="flex justify-end gap-2">
+                    <Button variant="secondary" onclick={() => openModal("link-player-account", p.id)}>Link account</Button>
+                    <Button variant="danger" onclick={() => openModal("remove-player", p.id)}>Remove</Button>
+                  </div>
                 </td>
               {/if}
             </tr>

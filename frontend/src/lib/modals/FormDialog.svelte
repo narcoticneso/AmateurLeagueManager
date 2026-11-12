@@ -1,3 +1,4 @@
+
 <script lang="ts">
   import XIcon from "@lucide/svelte/icons/x";
   import type { Snippet } from "svelte";
@@ -13,7 +14,7 @@
   }: {
     title: string;
     submitText: string;
-    onsubmit: () => Promise<string>;
+    onsubmit: () => Promise<string | null>;
     children: Snippet;
   } = $props();
 
@@ -26,9 +27,12 @@
     error = "";
     try {
       const message = await onsubmit();
-      closeModal();
-      await refresh();
-      showToast(message);
+
+      if (message !== null) {
+        closeModal();
+        await refresh();
+        showToast(message);
+      }
     } catch (failure) {
       error = (failure as Error).message;
     } finally {

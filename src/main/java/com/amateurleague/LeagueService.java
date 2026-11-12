@@ -19,6 +19,16 @@ public class LeagueService {
 
     public record Team(String id, String name, String abbreviation, String color, String manager) {}
 
+
+    public record Membership(
+        String teamId,
+        String teamName,
+        String role
+    ) {}
+
+    private record AccountIdentity(String id, String displayName) {}
+
+
     public record Player(String id, String teamId, String name, String position, int number) {}
 
     public record Game(
@@ -76,6 +86,47 @@ public class LeagueService {
     public List<Team> teams() {
         return db.query("SELECT * FROM teams ORDER BY name", (r, n) -> new Team(r.getString("id"), r.getString("name"), r.getString("abbreviation"), r.getString("color"), r.getString("manager")));
     }
+
+
+    public List<Membership> memberships(String email) {
+        return db.query(
+            """
+            SELECT t.id AS team_id, t.name AS team_name, tm.role
+            FROM users u
+            JOIN team_memberships tm ON tm.user_id = u.id
+            JOIN teams t ON t.id = tm.team_id
+            WHERE u.email = ?
+            ORDER BY t.name
+            """,
+            (r, n) -> new Membership(
+                r.getString("team_id"),
+                r.getString("team_name"),
+                r.getString("role")
+            ),
+            email
+        );
+    }
+
+    public String accountRole(String email) {
+        return db.queryForObject("SELECT account_role FROM users WHERE email = ?", String.class, email);
+    }
+
+    public boolean isManagerOfTeam(String email, String teamId) {
+        return db.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM users u
+            JOIN team_memberships tm ON tm.user_id = u.id
+            WHERE u.email = ?
+            AND tm.team_id = ?
+            AND tm.role = 'MANAGER'
+            """,
+            Integer.class,
+            email,
+            teamId
+        ) > 0;
+    }
+
 
     public List<Player> players() {
         return db.query("SELECT * FROM players ORDER BY jersey_number, name", (r, n) -> new Player(r.getString("id"), r.getString("team_id"), r.getString("name"), r.getString("position"), r.getInt("jersey_number")));
@@ -239,7 +290,7 @@ public class LeagueService {
         }
 
         Team team = requireTeam(teamId);
-        if (!team.manager().equalsIgnoreCase(username)) {
+        if (!isManagerOfTeam(username, teamId) && !team.manager().equalsIgnoreCase(username)) {
             fail("Only your team's manager can respond.");
         }
         if (submission.submittedBy().equalsIgnoreCase(username)) {
@@ -340,13 +391,53 @@ public class LeagueService {
         ) {
             fail("That jersey number is already on this roster.");
         }
-        db.update("INSERT INTO players VALUES (?, ?, ?, ?, ?)", UUID.randomUUID().toString(), teamId, name, input.position(), input.number());
+        db.update(
+            "INSERT INTO players (id, team_id, name, position, jersey_number) VALUES (?, ?, ?, ?, ?)",
+            UUID.randomUUID().toString(),
+            teamId,
+            name,
+            input.position(),
+            input.number()
+        );
     }
 
     public void removePlayer(String teamId, String playerId) {
         if (db.update("DELETE FROM players WHERE id = ? AND team_id = ?", playerId, teamId) == 0) {
             throw new ResponseStatusException(NOT_FOUND, "Player not found.");
         }
+    }
+
+    @Transactional
+    public void linkPlayerAccount(String teamId, String playerId, String email) {
+        String normalizedEmail = Objects.toString(email, "").trim().toLowerCase(Locale.ROOT);
+        if (normalizedEmail.isBlank()) {
+            fail("Enter the account email address.");
+        }
+        Integer accountExists = db.queryForObject(
+            "SELECT COUNT(*) FROM users WHERE email = ?", Integer.class, normalizedEmail);
+        if (accountExists == null || accountExists == 0) {
+            fail("No account exists for that email address.");
+        }
+        if (db.update("UPDATE players SET user_id = (SELECT id FROM users WHERE email = ?) WHERE id = ? AND team_id = ?",
+            normalizedEmail, playerId, teamId) == 0) {
+            throw new ResponseStatusException(NOT_FOUND, "Roster entry not found.");
+        }
+    }
+
+    @Transactional
+    public void assignTeamManager(String teamId, String email) {
+        requireTeam(teamId);
+        String normalizedEmail = Objects.toString(email, "").trim().toLowerCase(Locale.ROOT);
+        List<AccountIdentity> accounts = db.query("SELECT id, display_name FROM users WHERE email = ?",
+            (rs, row) -> new AccountIdentity(rs.getString("id"), rs.getString("display_name")), normalizedEmail);
+        if (accounts.isEmpty()) {
+            fail("No account exists for that email address.");
+        }
+        AccountIdentity account = accounts.getFirst();
+        db.update("DELETE FROM team_memberships WHERE team_id = ? AND role = 'MANAGER'", teamId);
+        db.update("MERGE INTO team_memberships (id, user_id, team_id, role, created_at) KEY (user_id, team_id) VALUES (?, ?, ?, 'MANAGER', ?)",
+            UUID.randomUUID().toString(), account.id(), teamId, LocalDateTime.now(ZoneId.of("UTC")));
+        db.update("UPDATE teams SET manager = ? WHERE id = ?", account.displayName(), teamId);
     }
 
     @Transactional
