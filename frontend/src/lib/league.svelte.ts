@@ -14,13 +14,13 @@ export const app = $state<{
     scoreSubmissions: [],
   },
   session: {
-  username: "",
-  accountRole: "",
-  view: "GUEST",
-  teamId: "",
-  memberships: [],
-  csrf: "",
-},
+    username: "",
+    accountRole: "",
+    view: "GUEST",
+    teamId: "",
+    memberships: [],
+    csrf: "",
+  },
 });
 
 export async function refresh() {

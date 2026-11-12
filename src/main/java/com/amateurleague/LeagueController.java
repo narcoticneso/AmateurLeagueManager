@@ -1,25 +1,25 @@
 package com.amateurleague;
 
-import static org.springframework.http.HttpStatus.*;
 import static java.util.Map.entry;
+import static org.springframework.http.HttpStatus.*;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.security.Principal;
 import java.util.*;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.web.csrf.CsrfToken;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.http.HttpStatus;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api")
@@ -52,47 +52,27 @@ public class LeagueController {
     private final LeagueService league;
     private final EmailVerificationService verification;
     private final SecurityContextRepository securityContextRepository;
-    private static final Map<String, String> DEVELOPER_TEAMS = Map.ofEntries(
-        entry("rudra", "wolves"), entry("ryan", "bears"), entry("lucas", "hawks"),
-        entry("nebojsa", "tigers"), entry("kiara", "mustangs"));
+    private static final Map<String, String> DEVELOPER_TEAMS = Map.ofEntries(entry("rudra", "wolves"), entry("ryan", "bears"), entry("lucas", "hawks"), entry("nebojsa", "tigers"), entry("kiara", "mustangs"));
 
-    public LeagueController(
-        LeagueService league,
-        EmailVerificationService verification,
-        SecurityContextRepository securityContextRepository
-    ) {
+    public LeagueController(LeagueService league, EmailVerificationService verification, SecurityContextRepository securityContextRepository) {
         this.league = league;
         this.verification = verification;
         this.securityContextRepository = securityContextRepository;
     }
-    @PostMapping("/register")
-    public ResponseEntity<RegistrationResponse> register(
-        @RequestBody RegistrationInput input
-    ) {
-        verification.requestCode(
-            input.email(),
-            input.displayName(),
-            input.password()
-        );
 
-        return ResponseEntity.accepted().body(
-            new RegistrationResponse("Verification code requested.")
-        );
+    @PostMapping("/register")
+    public ResponseEntity<RegistrationResponse> register(@RequestBody RegistrationInput input) {
+        verification.requestCode(input.email(), input.displayName(), input.password());
+
+        return ResponseEntity.accepted().body(new RegistrationResponse("Verification code requested."));
     }
 
     @PostMapping("/verify")
-    public VerifiedAccount verify(
-        @RequestBody VerificationInput input,
-        HttpServletRequest request,
-        HttpServletResponse response,
-        HttpSession session
-    ) {
-        EmailVerificationService.VerifiedUser user =
-            verification.verifyCode(input.email(), input.code());
+    public VerifiedAccount verify(@RequestBody VerificationInput input, HttpServletRequest request, HttpServletResponse response, HttpSession session) {
+        EmailVerificationService.VerifiedUser user = verification.verifyCode(input.email(), input.code());
 
         String accountRole = league.accountRole(user.email());
-        var authentication = new UsernamePasswordAuthenticationToken(user.email(), null,
-            List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + accountRole)));
+        var authentication = new UsernamePasswordAuthenticationToken(user.email(), null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + accountRole)));
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
@@ -104,21 +84,18 @@ public class LeagueController {
 
         return new VerifiedAccount(user.email(), user.displayName());
     }
+
     @GetMapping("/state")
     public LeagueState state() {
         return new LeagueState(league.teams(), league.players(), league.games(), league.standings(), league.scoreSubmissions());
     }
 
     @GetMapping("/session")
-    public SessionInfo session(
-        Principal user,
-        HttpSession session,
-        @Parameter(hidden = true) CsrfToken csrf
-    ) {
+    public SessionInfo session(Principal user, HttpSession session, @Parameter(hidden = true) CsrfToken csrf) {
         String username = user == null ? "" : user.getName();
-        List<LeagueService.Membership> memberships = user == null
-            ? List.of() : league.memberships(username);
-        String defaultTeamId = memberships.stream()
+        List<LeagueService.Membership> memberships = user == null ? List.of() : league.memberships(username);
+        String defaultTeamId = memberships
+            .stream()
             .filter(membership -> "MANAGER".equals(membership.role()))
             .map(LeagueService.Membership::teamId)
             .findFirst()
@@ -133,74 +110,55 @@ public class LeagueController {
             csrf.getToken()
         );
     }
+
     @PostMapping("/view")
-    public void changeView(
-        @RequestBody ViewInput input,
-        HttpSession session,
-        Principal principal
-    ) {
+    public void changeView(@RequestBody ViewInput input, HttpSession session, Principal principal) {
         String mode = input.view();
 
-        if (!Set.of("COMMISSIONER", "MANAGER", "PLAYER")
-            .contains(Objects.toString(mode, ""))) {
-            throw new ResponseStatusException(
-                BAD_REQUEST,
-                "Choose commissioner, manager, or player."
-            );
+        if (!Set.of("COMMISSIONER", "MANAGER", "PLAYER").contains(Objects.toString(mode, ""))) {
+            throw new ResponseStatusException(BAD_REQUEST, "Choose commissioner, manager, or player.");
         }
 
-        boolean isDeveloper = principal instanceof org.springframework.security.core.Authentication authentication &&
-            authentication.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("ROLE_COMMISSIONER"));
+        boolean isDeveloper =
+            principal instanceof org.springframework.security.core.Authentication authentication &&
+            authentication
+                .getAuthorities()
+                .stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_COMMISSIONER"));
 
-        boolean canManage = isDeveloper ||
-            league.memberships(principal.getName()).stream()
+        boolean canManage =
+            isDeveloper ||
+            league
+                .memberships(principal.getName())
+                .stream()
                 .anyMatch(m -> "MANAGER".equals(m.role()));
 
         if ("COMMISSIONER".equals(mode) && !isDeveloper) {
-            throw new ResponseStatusException(
-                FORBIDDEN,
-                "You do not have commissioner permissions."
-            );
+            throw new ResponseStatusException(FORBIDDEN, "You do not have commissioner permissions.");
         }
 
         if ("MANAGER".equals(mode) && !canManage) {
-            throw new ResponseStatusException(
-                FORBIDDEN,
-                "You are not a manager of any team."
-            );
+            throw new ResponseStatusException(FORBIDDEN, "You are not a manager of any team.");
         }
 
         session.setAttribute("view", mode);
     }
 
-
     @PostMapping("/select-team")
-    public void selectTeam(
-        @RequestBody TeamSelectionInput input,
-        HttpSession session,
-        Principal user
-    ) {
+    public void selectTeam(@RequestBody TeamSelectionInput input, HttpSession session, Principal user) {
         if (!"MANAGER".equals(view(session))) {
-            throw new ResponseStatusException(
-                FORBIDDEN,
-                "Switch to manager view before selecting a team."
-            );
+            throw new ResponseStatusException(FORBIDDEN, "Switch to manager view before selecting a team.");
         }
 
         String teamId = input.teamId();
 
         // Preserve developer access (testing purposes)
-        if (!Objects.equals(DEVELOPER_TEAMS.get(user.getName()), teamId)
-            && !league.isManagerOfTeam(user.getName(), teamId)) {
-            throw new ResponseStatusException(
-                FORBIDDEN,
-                "You are not a manager of that team."
-            );
+        if (!Objects.equals(DEVELOPER_TEAMS.get(user.getName()), teamId) && !league.isManagerOfTeam(user.getName(), teamId)) {
+            throw new ResponseStatusException(FORBIDDEN, "You are not a manager of that team.");
         }
 
         session.setAttribute("selectedTeamId", teamId);
     }
-
 
     @PostMapping("/teams")
     public void createTeam(@RequestBody LeagueService.TeamInput input, HttpSession session) {
@@ -221,15 +179,13 @@ public class LeagueController {
     }
 
     @PostMapping("/teams/{teamId}/players/{playerId}/account")
-    public void linkPlayerAccount(@PathVariable String teamId, @PathVariable String playerId,
-        @RequestBody AccountEmailInput input, HttpSession session, Principal user) {
+    public void linkPlayerAccount(@PathVariable String teamId, @PathVariable String playerId, @RequestBody AccountEmailInput input, HttpSession session, Principal user) {
         rosterPermission(teamId, session, user);
         league.linkPlayerAccount(teamId, playerId, input.email());
     }
 
     @PutMapping("/teams/{teamId}/manager")
-    public void assignTeamManager(@PathVariable String teamId, @RequestBody AccountEmailInput input,
-        HttpSession session) {
+    public void assignTeamManager(@PathVariable String teamId, @RequestBody AccountEmailInput input, HttpSession session) {
         commissioner(session);
         league.assignTeamManager(teamId, input.email());
     }
@@ -277,66 +233,48 @@ public class LeagueController {
             throw new ResponseStatusException(FORBIDDEN, "Switch to commissioner view to manage games and teams.");
         }
     }
+
     private String managedTeam(HttpSession session, Principal user) {
         if (!view(session).equals("MANAGER")) {
-            throw new ResponseStatusException(
-                FORBIDDEN,
-                "Switch to manager view to submit scores."
-            );
+            throw new ResponseStatusException(FORBIDDEN, "Switch to manager view to submit scores.");
         }
 
-        String teamId = Objects.toString(
-            session.getAttribute("selectedTeamId"),
-            ""
-        );
+        String teamId = Objects.toString(session.getAttribute("selectedTeamId"), "");
 
-        if (teamId.isBlank() || (!Objects.equals(DEVELOPER_TEAMS.get(user.getName()), teamId)
-            && !league.isManagerOfTeam(user.getName(), teamId))) {
-            throw new ResponseStatusException(
-                FORBIDDEN,
-                "You do not manage the selected team."
-            );
+        if (teamId.isBlank() || (!Objects.equals(DEVELOPER_TEAMS.get(user.getName()), teamId) && !league.isManagerOfTeam(user.getName(), teamId))) {
+            throw new ResponseStatusException(FORBIDDEN, "You do not manage the selected team.");
         }
 
         return teamId;
     }
-    private void rosterPermission(
-        String teamId,
-        HttpSession session,
-        Principal user
-    ) {
+
+    private void rosterPermission(String teamId, HttpSession session, Principal user) {
         if (view(session).equals("COMMISSIONER") && isCommissioner(user)) {
             return;
         }
 
         if (!view(session).equals("MANAGER")) {
-            throw new ResponseStatusException(
-                FORBIDDEN,
-                "Switch to manager view to edit a roster."
-            );
+            throw new ResponseStatusException(FORBIDDEN, "Switch to manager view to edit a roster.");
         }
 
-        String selectedTeam = Objects.toString(
-            session.getAttribute("selectedTeamId"),
-            DEVELOPER_TEAMS.getOrDefault(user.getName(), "")
-        );
+        String selectedTeam = Objects.toString(session.getAttribute("selectedTeamId"), DEVELOPER_TEAMS.getOrDefault(user.getName(), ""));
 
-        boolean isDatabaseManager = league.isManagerOfTeam(user.getName(), selectedTeam)
-            || Objects.equals(DEVELOPER_TEAMS.get(user.getName()), selectedTeam);
+        boolean isDatabaseManager = league.isManagerOfTeam(user.getName(), selectedTeam) || Objects.equals(DEVELOPER_TEAMS.get(user.getName()), selectedTeam);
 
         if (!Objects.equals(teamId, selectedTeam) || !isDatabaseManager) {
-            throw new ResponseStatusException(
-                FORBIDDEN,
-                "You can only edit a team you manage."
-            );
+            throw new ResponseStatusException(FORBIDDEN, "You can only edit a team you manage.");
         }
     }
 
     private boolean isCommissioner(Principal user) {
-        return user instanceof org.springframework.security.core.Authentication authentication &&
-            authentication.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("ROLE_COMMISSIONER"));
+        return (
+            user instanceof org.springframework.security.core.Authentication authentication &&
+            authentication
+                .getAuthorities()
+                .stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_COMMISSIONER"))
+        );
     }
-
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorMessage> validation(ResponseStatusException error) {

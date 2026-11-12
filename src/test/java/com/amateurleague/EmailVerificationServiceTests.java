@@ -1,4 +1,3 @@
-
 package com.amateurleague;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,13 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
-@SpringBootTest(
-    webEnvironment = SpringBootTest.WebEnvironment.MOCK,
-    properties = {
-        "spring.datasource.url=jdbc:h2:mem:verification-tests;DB_CLOSE_DELAY=-1",
-        "server.address=127.0.0.1"
-    }
-)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, properties = { "spring.datasource.url=jdbc:h2:mem:verification-tests;DB_CLOSE_DELAY=-1", "server.address=127.0.0.1" })
 class EmailVerificationServiceTests {
 
     @Autowired
@@ -29,8 +22,7 @@ class EmailVerificationServiceTests {
     @Autowired
     JdbcTemplate db;
 
-    private static final BCryptPasswordEncoder ENCODER =
-        new BCryptPasswordEncoder();
+    private static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder();
 
     @BeforeEach
     void reset() {
@@ -59,53 +51,33 @@ class EmailVerificationServiceTests {
 
     @Test
     void invalidEmailIsRejected() {
-        assertThrows(
-            ResponseStatusException.class,
-            () -> verification.requestCode("not-an-email", "Test User", "password123")
-        );
+        assertThrows(ResponseStatusException.class, () -> verification.requestCode("not-an-email", "Test User", "password123"));
     }
 
     @Test
     void invalidCodeFormatIsRejected() {
-        assertThrows(
-            ResponseStatusException.class,
-            () -> verification.verifyCode("test@example.com", "123")
-        );
+        assertThrows(ResponseStatusException.class, () -> verification.verifyCode("test@example.com", "123"));
     }
 
     @Test
     void missingCodeIsRejected() {
-        assertThrows(
-            ResponseStatusException.class,
-            () -> verification.verifyCode("test@example.com", "123456")
-        );
+        assertThrows(ResponseStatusException.class, () -> verification.verifyCode("test@example.com", "123456"));
     }
 
     @Test
     void correctCodeCreatesUserAccount() {
         insertCode("test@example.com", "123456");
 
-        var user = verification.verifyCode(
-            "test@example.com",
-            "123456"
-        );
+        var user = verification.verifyCode("test@example.com", "123456");
 
         assertEquals("test@example.com", user.email());
         assertEquals("Test User", user.displayName());
 
-        Integer count = db.queryForObject(
-            "SELECT COUNT(*) FROM users WHERE email = ?",
-            Integer.class,
-            "test@example.com"
-        );
+        Integer count = db.queryForObject("SELECT COUNT(*) FROM users WHERE email = ?", Integer.class, "test@example.com");
 
         assertEquals(1, count);
 
-        Integer remainingCodes = db.queryForObject(
-            "SELECT COUNT(*) FROM email_verification_codes WHERE email = ?",
-            Integer.class,
-            "test@example.com"
-        );
+        Integer remainingCodes = db.queryForObject("SELECT COUNT(*) FROM email_verification_codes WHERE email = ?", Integer.class, "test@example.com");
 
         assertEquals(0, remainingCodes);
     }
@@ -114,16 +86,9 @@ class EmailVerificationServiceTests {
     void incorrectCodeIncrementsAttemptCount() {
         insertCode("test@example.com", "123456");
 
-        assertThrows(
-            ResponseStatusException.class,
-            () -> verification.verifyCode("test@example.com", "999999")
-        );
+        assertThrows(ResponseStatusException.class, () -> verification.verifyCode("test@example.com", "999999"));
 
-        Integer attempts = db.queryForObject(
-            "SELECT attempts FROM email_verification_codes WHERE email = ?",
-            Integer.class,
-            "test@example.com"
-        );
+        Integer attempts = db.queryForObject("SELECT attempts FROM email_verification_codes WHERE email = ?", Integer.class, "test@example.com");
 
         assertEquals(1, attempts);
     }

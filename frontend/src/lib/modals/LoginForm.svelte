@@ -1,4 +1,3 @@
-
 <script lang="ts">
   import { api } from "$lib/api";
   import { Input } from "$lib/components/ui/input";
@@ -14,21 +13,9 @@
   let code = $state("");
   let confirmPassword = $state("");
 
-  let title = $derived(
-    mode === "login"
-      ? "Welcome to the clubhouse"
-      : mode === "register"
-        ? "Create your account"
-        : "Verify your email"
-  );
+  let title = $derived(mode === "login" ? "Welcome to the clubhouse" : mode === "register" ? "Create your account" : "Verify your email");
 
-  let submitText = $derived(
-    mode === "login"
-      ? "Sign in"
-      : mode === "register"
-        ? "Send verification code"
-        : "Verify and sign in"
-  );
+  let submitText = $derived(mode === "login" ? "Sign in" : mode === "register" ? "Send verification code" : "Verify and sign in");
 
   async function submit() {
     if (mode === "login") {
@@ -72,11 +59,9 @@
   }
 </script>
 
-<FormDialog title={title} submitText={submitText} onsubmit={submit}>
+<FormDialog {title} {submitText} onsubmit={submit}>
   {#if mode === "login"}
-    <p class={formHelp}>
-      Sign in with your account email, or use a local developer username for testing.
-    </p>
+    <p class={formHelp}>Sign in with your account email, or use a local developer username for testing.</p>
 
     <div class={formGrid}>
       <Label class="col-span-full">
@@ -90,14 +75,9 @@
       </Label>
     </div>
 
-    <button type="button" class="mt-4 text-sm text-green underline" onclick={() => mode = "register"}>
-      Create a new account
-    </button>
-
+    <button type="button" class="mt-4 text-sm text-green underline" onclick={() => (mode = "register")}> Create a new account </button>
   {:else if mode === "register"}
-    <p class={formHelp}>
-      Enter your name and email address. We'll send you a six-digit verification code.
-    </p>
+    <p class={formHelp}>Enter your name and email address. We'll send you a six-digit verification code.</p>
 
     <div class={formGrid}>
       <Label class="col-span-full">
@@ -111,33 +91,16 @@
       </Label>
       <Label class="col-span-full">
         Password
-        <Input
-          type="password"
-          bind:value={password}
-          minlength={8}
-          maxlength={72}
-          autocomplete="new-password"
-          required
-        />
+        <Input type="password" bind:value={password} minlength={8} maxlength={72} autocomplete="new-password" required />
       </Label>
 
       <Label class="col-span-full">
         Confirm password
-        <Input
-          type="password"
-          bind:value={confirmPassword}
-          minlength={8}
-          maxlength={72}
-          autocomplete="new-password"
-          required
-        />
+        <Input type="password" bind:value={confirmPassword} minlength={8} maxlength={72} autocomplete="new-password" required />
       </Label>
     </div>
 
-    <button type="button" class="mt-4 text-sm text-green underline" onclick={() => mode = "login"}>
-      Back to sign in
-    </button>
-
+    <button type="button" class="mt-4 text-sm text-green underline" onclick={() => (mode = "login")}> Back to sign in </button>
   {:else}
     <p class={formHelp}>
       Enter the six-digit verification code for <strong>{email}</strong>.
@@ -146,18 +109,10 @@
     <div class={formGrid}>
       <Label class="col-span-full">
         Verification code
-        <Input
-          bind:value={code}
-          maxlength={6}
-          placeholder="123456"
-          autocomplete="one-time-code"
-          required
-        />
+        <Input bind:value={code} maxlength={6} placeholder="123456" autocomplete="one-time-code" required />
       </Label>
     </div>
 
-    <button type="button" class="mt-4 text-sm text-green underline" onclick={() => mode = "register"}>
-      Back to registration
-    </button>
+    <button type="button" class="mt-4 text-sm text-green underline" onclick={() => (mode = "register")}> Back to registration </button>
   {/if}
 </FormDialog>

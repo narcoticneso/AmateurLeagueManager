@@ -46,14 +46,7 @@ public class DemoData implements CommandLineRunner {
         int[] numbers = { 7, 22, 11, 14, 54, 3 };
         for (int t = 0; t < teams.length; t++) {
             for (int p = 0; p < 6; p++) {
-                db.update(
-                    "INSERT INTO players (id, team_id, name, position, jersey_number) VALUES (?, ?, ?, ?, ?)",
-                    UUID.randomUUID().toString(),
-                    teams[t][0],
-                    names[t][p],
-                    positions[p],
-                    numbers[p]
-                );
+                db.update("INSERT INTO players (id, team_id, name, position, jersey_number) VALUES (?, ?, ?, ?, ?)", UUID.randomUUID().toString(), teams[t][0], names[t][p], positions[p], numbers[p]);
             }
         }
         // Each pair plays once over five weeks. These are sample results, not live scores.

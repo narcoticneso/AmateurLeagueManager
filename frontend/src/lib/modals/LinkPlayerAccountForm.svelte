@@ -10,7 +10,10 @@
   let email = $state("");
 
   async function link() {
-    if (!player) return null;
+    if (!player) {
+      return null;
+    }
+
     await api(`/teams/${player.teamId}/players/${player.id}/account`, "POST", { email: email.trim() });
     return `Linked ${player.name} to that account.`;
   }

@@ -1,4 +1,3 @@
-
 <script lang="ts">
   import XIcon from "@lucide/svelte/icons/x";
   import type { Snippet } from "svelte";
