@@ -62,6 +62,12 @@ public class LeagueController {
         league.createTeam(input);
     }
 
+    @PutMapping("/teams/{teamId}")
+    public void editTeam(@PathVariable String teamId, @RequestBody LeagueService.TeamInput input, HttpSession session) {
+        commissioner(session);
+        league.updateTeam(teamId, input);
+    }
+
     @PostMapping("/teams/{teamId}/players")
     public void addPlayer(@PathVariable String teamId, @RequestBody LeagueService.PlayerInput input, HttpSession session, Principal user) {
         rosterPermission(teamId, session, user);

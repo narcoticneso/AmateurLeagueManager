@@ -324,6 +324,33 @@ public class LeagueService {
     }
 
     @Transactional
+    public void updateTeam(String id, TeamInput input) {
+        // Checks the team exists
+        requireTeam(id);
+
+        // Validate the team details
+        String name = text(input.name(), "Team name", 60);
+        String abbreviation = text(input.abbreviation(), "Abbreviation", 3).toUpperCase(Locale.ROOT);
+        if (!abbreviation.matches("[A-Z]{2,3}")) {
+            fail("Use two or three letters for the abbreviation.");
+        }
+        if (input.color() == null || !input.color().matches("#[0-9a-fA-F]{6}")) {
+            fail("Choose a valid team color.");
+        }
+        // Prevents taking another team's name, but lets the team keep its own
+        if (
+            teams()
+                .stream()
+                .anyMatch(t -> !t.id().equals(id) && t.name().equalsIgnoreCase(name))
+        ) {
+            fail("A team with that name already exists.");
+        }
+
+        // The team id never changes, so its players and games stay attached
+        db.update("UPDATE teams SET name = ?, abbreviation = ?, color = ?, manager = ? WHERE id = ?", name, abbreviation, input.color(), text(input.manager(), "Manager", 60), id);
+    }
+
+    @Transactional
     public void addPlayer(String teamId, PlayerInput input) {
         requireTeam(teamId);
         String name = text(input.name(), "Player name", 60);

@@ -134,6 +134,36 @@ class LeagueApplicationTests {
     }
 
     @Test
+    void commissionerCanEditTeamsAndInvalidEditsAreRejected() throws Exception {
+        login("lucas");
+        var edit = json.writeValueAsString(Map.of("name", "Lakewood Timberwolves", "abbreviation", "lt", "color", "#123456", "manager", "Test"));
+        assertEquals(200, request("PUT", "/api/teams/wolves", edit, "application/json", true).statusCode());
+        var team = league.requireTeam("wolves");
+        assertEquals("Lakewood Timberwolves", team.name());
+        assertEquals("LT", team.abbreviation());
+        assertEquals("#123456", team.color());
+        assertEquals("Test", team.manager());
+        assertEquals(6, league.teams().size());
+        assertEquals(
+            6,
+            league
+                .players()
+                .stream()
+                .filter(p -> p.teamId().equals("wolves"))
+                .count()
+        );
+        var sameName = json.writeValueAsString(Map.of("name", "lakewood timberwolves", "abbreviation", "LW", "color", "#123456", "manager", "Test"));
+        assertEquals(200, request("PUT", "/api/teams/wolves", sameName, "application/json", true).statusCode());
+        var takenName = json.writeValueAsString(Map.of("name", "Brookside Bears", "abbreviation", "LW", "color", "#123456", "manager", "Test"));
+        assertEquals(400, request("PUT", "/api/teams/wolves", takenName, "application/json", true).statusCode());
+        var badColor = json.writeValueAsString(Map.of("name", "Lakewood Wolves", "abbreviation", "LW", "color", "green", "manager", "Test"));
+        assertEquals(400, request("PUT", "/api/teams/wolves", badColor, "application/json", true).statusCode());
+        assertEquals(404, request("PUT", "/api/teams/missing", edit, "application/json", true).statusCode());
+        assertEquals(200, post("/view", Map.of("view", "MANAGER")).statusCode());
+        assertEquals(403, request("PUT", "/api/teams/wolves", edit, "application/json", true).statusCode());
+    }
+
+    @Test
     void standingsExcludeTournamentAndUnplayedGamesAndRecalculateCorrections() {
         db.update("DELETE FROM games");
         league.saveGame(null, game("wolves", "bears", "REGULAR", "FINAL", 14, 7));
