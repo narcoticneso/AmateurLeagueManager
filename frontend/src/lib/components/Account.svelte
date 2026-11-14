@@ -5,10 +5,12 @@
   import { app, openModal, refresh, showToast } from "$lib/league.svelte";
   import SelectField from "./SelectField.svelte";
 
-  const viewOptions = ["COMMISSIONER", "MANAGER", "PLAYER"].map((v) => ({
-    value: v,
-    label: `${titleCase(v)} view`,
-  }));
+  const viewOptions = $derived(
+    ["PLAYER", ...(app.session.accountRole === "COMMISSIONER" || app.session.memberships.some((membership) => membership.role === "MANAGER") ? ["MANAGER"] : []), ...(app.session.accountRole === "COMMISSIONER" ? ["COMMISSIONER"] : [])].map((v) => ({
+      value: v,
+      label: `${titleCase(v)} view`,
+    })),
+  );
 
   async function changeView(view: string) {
     try {
@@ -38,6 +40,6 @@
     <span class="grid size-[30px] place-items-center rounded-full border border-edge bg-green-tint text-xs font-bold text-green max-sm:hidden" title={titleCase(app.session.username)}>{app.session.username.charAt(0).toUpperCase()}</span>
     <Button variant="plain" onclick={signOut}>Sign out</Button>
   {:else}
-    <Button variant="secondary" size="small" onclick={() => openModal("login")}>Developer sign in ↗</Button>
+    <Button variant="secondary" size="small" onclick={() => openModal("login")}>Sign in ↗</Button>
   {/if}
 </div>

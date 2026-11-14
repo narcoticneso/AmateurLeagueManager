@@ -40,7 +40,7 @@ export async function api<T = null>(path: string, method = "GET", body?: object 
       message?: string;
     } | null;
     const fallback =
-      response.status === 401 ? "Sign in with your developer username and password." : response.status === 403 ? "This action is not available in your current view. Refresh if your session expired." : "Unable to save changes. Please try again.";
+      response.status === 401 ? "Sign in with your account email and password." : response.status === 403 ? "This action is not available in your current view. Refresh if your session expired." : "Unable to save changes. Please try again.";
     throw new Error(detail?.message || fallback);
   }
   const text = await response.text();
