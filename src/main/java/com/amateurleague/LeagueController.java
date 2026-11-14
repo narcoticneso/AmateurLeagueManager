@@ -13,6 +13,7 @@ import java.util.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -120,7 +121,7 @@ public class LeagueController {
         }
 
         boolean isDeveloper =
-            principal instanceof org.springframework.security.core.Authentication authentication &&
+            principal instanceof Authentication authentication &&
             authentication
                 .getAuthorities()
                 .stream()
@@ -204,12 +205,13 @@ public class LeagueController {
 
     @PostMapping("/games/{gameId}/scores")
     public void submitScore(@PathVariable String gameId, @RequestBody ScoreInput input, HttpSession session, Principal user) {
-        league.submitScore(gameId, user.getName(), managedTeam(session, user), input.homeScore(), input.awayScore());
+        league.submitScore(gameId, user.getName(), managedTeam(session, user, gameId), input.homeScore(), input.awayScore());
     }
 
     @PostMapping("/scores/{submissionId}/respond")
     public void respondToScore(@PathVariable String submissionId, @RequestBody ScoreResponseInput input, HttpSession session, Principal user) {
-        league.respondToScore(submissionId, user.getName(), managedTeam(session, user), Boolean.TRUE.equals(input.confirm()), input.disputedHomeScore(), input.disputedAwayScore());
+        String gameId = league.gameIdForSubmission(submissionId);
+        league.respondToScore(submissionId, user.getName(), managedTeam(session, user, gameId), Boolean.TRUE.equals(input.confirm()), input.disputedHomeScore(), input.disputedAwayScore());
     }
 
     @PostMapping("/scores/{submissionId}/resolve")
@@ -234,18 +236,24 @@ public class LeagueController {
         }
     }
 
-    private String managedTeam(HttpSession session, Principal user) {
+    private String managedTeam(HttpSession session, Principal user, String gameId) {
         if (!view(session).equals("MANAGER")) {
             throw new ResponseStatusException(FORBIDDEN, "Switch to manager view to submit scores.");
         }
 
-        String teamId = Objects.toString(session.getAttribute("selectedTeamId"), "");
-
-        if (teamId.isBlank() || (!Objects.equals(DEVELOPER_TEAMS.get(user.getName()), teamId) && !league.isManagerOfTeam(user.getName(), teamId))) {
-            throw new ResponseStatusException(FORBIDDEN, "You do not manage the selected team.");
+        LeagueService.Game game = league.requireGame(gameId);
+        String developerTeam = DEVELOPER_TEAMS.get(user.getName());
+        if (Objects.equals(developerTeam, game.homeId()) || Objects.equals(developerTeam, game.awayId())) {
+            return developerTeam;
         }
 
-        return teamId;
+        if (league.isManagerOfTeam(user.getName(), game.homeId())) {
+            return game.homeId();
+        }
+        if (league.isManagerOfTeam(user.getName(), game.awayId())) {
+            return game.awayId();
+        }
+        throw new ResponseStatusException(FORBIDDEN, "You do not manage a team in this game.");
     }
 
     private void rosterPermission(String teamId, HttpSession session, Principal user) {
@@ -268,7 +276,7 @@ public class LeagueController {
 
     private boolean isCommissioner(Principal user) {
         return (
-            user instanceof org.springframework.security.core.Authentication authentication &&
+            user instanceof Authentication authentication &&
             authentication
                 .getAuthorities()
                 .stream()

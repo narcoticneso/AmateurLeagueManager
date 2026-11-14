@@ -15,6 +15,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import java.util.Locale;
 
 @Configuration
 public class SecurityConfig {
@@ -26,7 +27,7 @@ public class SecurityConfig {
         var developers = new InMemoryUserDetailsManager();
         var encoder = new BCryptPasswordEncoder();
         for (String name : new String[] { "rudra", "ryan", "lucas", "nebojsa", "kiara" }) {
-            String password = env.getProperty("ALM_PASSWORD_" + name.toUpperCase(java.util.Locale.ROOT), "neighborhood-demo");
+            String password = env.getProperty("ALM_PASSWORD_" + name.toUpperCase(Locale.ROOT), "neighborhood-demo");
             developers.createUser(
                 User.withUsername(name)
                     .password("{bcrypt}" + encoder.encode(password))
@@ -45,7 +46,7 @@ public class SecurityConfig {
                             .password("{bcrypt}" + rs.getString("password_hash"))
                             .roles(rs.getString("account_role"))
                             .build(),
-                    username.trim().toLowerCase(java.util.Locale.ROOT)
+                    username.trim().toLowerCase(Locale.ROOT)
                 );
             }
         };

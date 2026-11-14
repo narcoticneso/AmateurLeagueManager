@@ -151,6 +151,10 @@ public class LeagueService {
             .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Score submission not found."));
     }
 
+    public String gameIdForSubmission(String submissionId) {
+        return requireSubmission(submissionId).gameId();
+    }
+
     private static ScoreSubmission mapSubmission(ResultSet r, int rowNum) throws SQLException {
         return new ScoreSubmission(
             r.getString("id"),
