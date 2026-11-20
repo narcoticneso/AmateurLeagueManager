@@ -1,9 +1,11 @@
 <script lang="ts">
   import { modal } from "$lib/league.svelte";
   import ConfirmScoreForm from "./ConfirmScoreForm.svelte";
+  import AssignTeamManagerForm from "./AssignTeamManagerForm.svelte";
   import DisputeScoreForm from "./DisputeScoreForm.svelte";
   import GameForm from "./GameForm.svelte";
   import LoginForm from "./LoginForm.svelte";
+  import LinkPlayerAccountForm from "./LinkPlayerAccountForm.svelte";
   import PlayerForm from "./PlayerForm.svelte";
   import RemovePlayerForm from "./RemovePlayerForm.svelte";
   import ResolveScoreForm from "./ResolveScoreForm.svelte";
@@ -21,6 +23,10 @@
   <PlayerForm />
 {:else if modal.kind === "remove-player"}
   <RemovePlayerForm />
+{:else if modal.kind === "link-player-account"}
+  <LinkPlayerAccountForm />
+{:else if modal.kind === "assign-team-manager"}
+  <AssignTeamManagerForm />
 {:else if modal.kind === "submit-score"}
   <SubmitScoreForm />
 {:else if modal.kind === "dispute-score"}

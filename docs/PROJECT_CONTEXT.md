@@ -27,7 +27,7 @@ Developers: Rudra, Ryan, Lucas, Nebojsa, and Kiara. Each has a separate developm
 
 ## Current implementation
 
-- Java 21, Spring Boot 4.0.9, Maven wrapper, Spring Security sessions and CSRF protection, Spring JDBC, and a persistent local H2 database with Flyway migrations.
+- Java 21, Spring Boot 4.0.9, Maven wrapper, Spring Security sessions and CSRF protection, Spring JDBC, and H2 with Flyway migrations. The default profile uses a persistent local database; the `dev` profile uses an in-memory database recreated at each startup.
 - Maven downloads Node.js and builds the frontend, so only Java has to be installed. TypeScript types for the API are generated from the Java code on every build.
 - Code checks are strict and enforced by `mvnw verify`: Prettier formats both Java (prettier-plugin-java) and the frontend (`mvnw -Pformat`); Checkstyle (braces required) and Error Prone with warnings as errors for Java; strict TypeScript, svelte-check, and ESLint (`strictTypeChecked`, braces required) for the frontend.
 - Frontend unit and browser tests are out of scope.
