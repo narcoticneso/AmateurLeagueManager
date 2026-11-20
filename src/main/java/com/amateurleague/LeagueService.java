@@ -89,15 +89,26 @@ public class LeagueService {
             JOIN team_memberships tm ON tm.user_id = u.id
             JOIN teams t ON t.id = tm.team_id
             WHERE u.email = ?
-            ORDER BY t.name
+            UNION
+            SELECT t.id, t.name, 'PLAYER'
+            FROM users u
+            JOIN players p ON p.user_id = u.id
+            JOIN teams t ON t.id = p.team_id
+            WHERE u.email = ?
+            ORDER BY role, team_name
             """,
             (r, n) -> new Membership(r.getString("team_id"), r.getString("team_name"), r.getString("role")),
+            email,
             email
         );
     }
 
-    public String accountRole(String email) {
-        return db.queryForObject("SELECT account_role FROM users WHERE email = ?", String.class, email);
+    public String displayName(String email) {
+        return db.queryForList("SELECT display_name FROM users WHERE email = ?", String.class, email).stream().findFirst().orElse("");
+    }
+
+    public boolean isCommissioner(String email) {
+        return db.queryForObject("SELECT COUNT(*) FROM users WHERE email = ? AND commissioner", Integer.class, email) > 0;
     }
 
     public boolean isManagerOfTeam(String email, String teamId) {
@@ -283,8 +294,7 @@ public class LeagueService {
             fail("You are not part of this game.");
         }
 
-        Team team = requireTeam(teamId);
-        if (!isManagerOfTeam(username, teamId) && !team.manager().equalsIgnoreCase(username)) {
+        if (!isManagerOfTeam(username, teamId)) {
             fail("Only your team's manager can respond.");
         }
         if (submission.submittedBy().equalsIgnoreCase(username)) {
@@ -430,6 +440,9 @@ public class LeagueService {
         Integer accountExists = db.queryForObject("SELECT COUNT(*) FROM users WHERE email = ?", Integer.class, normalizedEmail);
         if (accountExists == null || accountExists == 0) {
             fail("No account exists for that email address.");
+        }
+        if (db.queryForObject("SELECT COUNT(*) FROM players WHERE user_id = (SELECT id FROM users WHERE email = ?) AND id <> ?", Integer.class, normalizedEmail, playerId) > 0) {
+            fail("That account is already linked to another roster entry.");
         }
         if (db.update("UPDATE players SET user_id = (SELECT id FROM users WHERE email = ?) WHERE id = ? AND team_id = ?", normalizedEmail, playerId, teamId) == 0) {
             throw new ResponseStatusException(NOT_FOUND, "Roster entry not found.");

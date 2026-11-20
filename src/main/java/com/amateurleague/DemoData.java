@@ -1,9 +1,13 @@
 package com.amateurleague;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,15 +15,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class DemoData implements CommandLineRunner {
 
-    private final JdbcTemplate db;
+    private static final String[][] DEVELOPERS = { { "Rudra", "wolves" }, { "Ryan", "bears" }, { "Lucas", "hawks" }, { "Nebojsa", "tigers" }, { "Kiara", "mustangs" } };
 
-    public DemoData(JdbcTemplate db) {
+    private final JdbcTemplate db;
+    private final Environment env;
+
+    public DemoData(JdbcTemplate db, Environment env) {
         this.db = db;
+        this.env = env;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
+        var encoder = new BCryptPasswordEncoder();
+        for (String[] developer : DEVELOPERS) {
+            String hash = encoder.encode(env.getProperty("ALM_PASSWORD_" + developer[0].toUpperCase(Locale.ROOT), "neighborhood-demo"));
+            if (db.update("UPDATE users SET password_hash = ?, commissioner = TRUE WHERE email = ?", hash, email(developer[0])) == 0) {
+                db.update("INSERT INTO users (id, email, display_name, password_hash, commissioner, created_at) VALUES (?, ?, ?, ?, TRUE, ?)", UUID.randomUUID().toString(), email(developer[0]), developer[0], hash, now());
+            }
+        }
         if (db.queryForObject("SELECT COUNT(*) FROM teams", Integer.class) > 0) {
             return;
         }
@@ -70,6 +85,17 @@ public class DemoData implements CommandLineRunner {
         game("week6-0", "wolves", "hawks", "2026-11-06T19:00", 6, "REGULAR", "SCHEDULED", null, null);
         game("week6-1", "bears", "tigers", "2026-11-07T13:00", 6, "REGULAR", "SCHEDULED", null, null);
         game("week6-2", "mustangs", "falcons", "2026-11-07T15:00", 6, "REGULAR", "SCHEDULED", null, null);
+        for (String[] developer : DEVELOPERS) {
+            db.update("INSERT INTO team_memberships (id, user_id, team_id, role, created_at) SELECT ?, id, ?, 'MANAGER', ? FROM users WHERE email = ?", UUID.randomUUID().toString(), developer[1], now(), email(developer[0]));
+        }
+    }
+
+    private static String email(String name) {
+        return name.toLowerCase(Locale.ROOT) + "@example.com";
+    }
+
+    private static LocalDateTime now() {
+        return LocalDateTime.now(ZoneId.of("UTC"));
     }
 
     private void game(String id, String home, String away, String time, int week, String phase, String status, Integer hs, Integer as) {

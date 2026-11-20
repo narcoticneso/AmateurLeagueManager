@@ -15,9 +15,8 @@ export const app = $state<{
   },
   session: {
     username: "",
-    accountRole: "",
-    view: "GUEST",
-    teamId: "",
+    displayName: "",
+    commissioner: false,
     memberships: [],
     csrf: "",
   },
@@ -35,9 +34,13 @@ export const team = (id: string) => app.league.teams.find((t) => t.id === id);
 
 export const teamName = (id: string) => team(id)?.name ?? "";
 
-export const commissioner = () => app.session.view === "COMMISSIONER";
+export const commissioner = () => app.session.commissioner;
 
-export const canEditRoster = (id: string) => commissioner() || (app.session.view === "MANAGER" && app.session.teamId === id);
+export const managedTeamIds = () => app.session.memberships.filter((m) => m.role === "MANAGER").map((m) => m.teamId);
+
+export const myTeamId = () => app.session.memberships[0]?.teamId ?? "";
+
+export const canEditRoster = (id: string) => commissioner() || managedTeamIds().includes(id);
 
 export const record = (id: string) => {
   const s = app.league.standings.find((s) => s.teamId === id);

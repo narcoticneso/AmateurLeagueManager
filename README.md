@@ -12,10 +12,10 @@ The interface takes inspiration from fantasy-football dashboards: dark surfaces,
 
 - Public league dashboard with recent results, the next matchup, standings, and upcoming games.
 - Responsive layouts for desktop and phone browsers.
-- Five developer accounts with commissioner, manager, and player views.
+- Account sign-up with email verification, and roles that come from what each account manages or plays for.
 - Commissioner tools to create teams, add/remove roster entries, schedule games, reschedule games, mark postponements/cancellations, and record or correct scores.
-- Manager tools to add/remove players on their own assigned team.
-- Player view with read-only league, roster, and schedule access.
+- Manager tools to add/remove players on their own team and link roster entries to accounts.
+- Read-only league, roster, and schedule access for players and visitors.
 - Automatic regular-season standings calculated from final results.
 - One four-team postseason cup with two semifinals and one championship. Matchups and advancement are entered manually.
 - Local database persistence across restarts.
@@ -121,32 +121,34 @@ Frontend code is in `frontend/src/`, and the theme (colors, fonts, breakpoints) 
 
 The build generates TypeScript types for the API from the Java code, so they never go stale. If a record field can be `null`, mark it with `@Schema(types = {"integer", "null"})` so its type allows `null`.
 
-## Accounts and views
+## Accounts and roles
 
-Use **Developer sign in** in the upper-right corner. The local demo password is **`neighborhood-demo`** for each account unless an environment override is configured.
+Anyone can view the league without signing in. To make changes, use **Sign in** in the upper-right corner, or create an account there with a name, email, and password. New accounts confirm their email with a six-digit code. Email delivery is not built yet, so the code is printed in the server terminal.
 
-| Developer | Username | Assigned team for manager/player view |
+Roles come from the account, not from a setting:
+
+| Role | Who | Permissions |
 | --- | --- | --- |
-| Rudra | `rudra` | Lakewood Wolves |
-| Ryan | `ryan` | Brookside Bears |
-| Lucas | `lucas` | Highland Hawks |
-| Nebojsa | `nebojsa` | Riverside Tigers |
-| Kiara | `kiara` | Maplewood Mustangs |
+| Commissioner | Developer accounts, plus any email listed in `ALM_COMMISSIONER_EMAILS` when it signs up | Create and edit teams; manage any roster; assign team managers; schedule games; enter/correct results; resolve score disputes |
+| Manager | An account the commissioner assigned to a team (**Assign manager** on a roster page) | Manage that team's roster, link roster entries to accounts, and submit or confirm that team's scores |
+| Player | An account linked to a roster entry (**Link account** on a roster page) | Read-only access; the team appears under **My team** |
+| Public visitor | Not signed in | Read-only access |
 
-Use the **view selector** after signing in. It preserves the account and switches the current session between:
+Permissions are enforced in Java, including direct API requests.
 
-| View | Permissions |
-| --- | --- |
-| Commissioner | Create teams; manage any roster; schedule games; enter/correct results; manage cup matchups |
-| Manager | View the league; manage only the assigned team's roster |
-| Player | Read-only league and team access |
-| Public visitor | Read-only access without signing in |
+The demo data includes five developer accounts. Each is a commissioner and manages one team. The password is **`neighborhood-demo`** unless overridden.
 
-Permissions are enforced in Java, including direct API requests. Switching browser tabs does not create independent roles: tabs sharing the same session share the selected view. Refresh another open tab after switching views.
+| Developer | Email | Manages |
+| --- | --- | --- |
+| Rudra | `rudra@example.com` | Lakewood Wolves |
+| Ryan | `ryan@example.com` | Brookside Bears |
+| Lucas | `lucas@example.com` | Highland Hawks |
+| Nebojsa | `nebojsa@example.com` | Riverside Tigers |
+| Kiara | `kiara@example.com` | Maplewood Mustangs |
 
-These are development accounts, not a complete public registration system. The app binds to `127.0.0.1` by default. It has not been deployed. Before hosting for real users, replace the demo credentials, add durable user/team membership management, configure HTTPS, and review public roster visibility.
+Each developer's password can be overridden independently before starting the server, using `ALM_PASSWORD_RUDRA`, `ALM_PASSWORD_RYAN`, `ALM_PASSWORD_LUCAS`, `ALM_PASSWORD_NEBOJSA`, and `ALM_PASSWORD_KIARA`. Do not commit real passwords. Developer accounts are created on every startup, but their team assignments are only seeded with a fresh database; in an older `data/` database, assign them with **Assign manager** or move `data/` aside.
 
-Each developer's password can be overridden independently before starting the server, using `ALM_PASSWORD_RUDRA`, `ALM_PASSWORD_RYAN`, `ALM_PASSWORD_LUCAS`, `ALM_PASSWORD_NEBOJSA`, and `ALM_PASSWORD_KIARA`. Do not commit real passwords.
+The app binds to `127.0.0.1` by default. It has not been deployed. Before hosting for real users, remove the demo accounts, add real email delivery, configure HTTPS, and review public roster visibility.
 
 ## Game and standings rules
 
@@ -198,15 +200,15 @@ java -jar target/amateur-league-manager-0.1.0-SNAPSHOT.jar
 
 Use `sh ./mvnw` in place of `.\mvnw.cmd` on macOS/Linux. On the original development machine, `.\dev.ps1 test` and `.\dev.ps1 package` also work.
 
-Tests cover public read access, CSRF enforcement, all five logins and view changes, manager/player restrictions, team creation, score updates, standings calculations, invalid game input, duplicate jersey numbers, and tournament progression. GitHub Actions runs `mvnw verify` on pushes and pull requests, which also checks formatting with Prettier and runs Checkstyle (braces), Error Prone, svelte-check, and ESLint in strict mode.
+Tests cover public read access, CSRF enforcement, developer logins, roles derived from team memberships, manager/player restrictions, team creation, score updates, standings calculations, invalid game input, duplicate jersey numbers, and tournament progression. GitHub Actions runs `mvnw verify` on pushes and pull requests, which also checks formatting with Prettier and runs Checkstyle (braces), Error Prone, svelte-check, and ESLint in strict mode.
 
 ## Small next steps
 
 1. Agree on story ownership across the five developers.
-2. Add team editing and configurable league/season settings.
-3. Replace fixed account assignments with persisted users and memberships.
-4. Add join requests if they are needed after the basic workflow is comfortable.
-5. Consider reminders, score confirmation/disputes, and historical seasons later.
+2. Add configurable league/season settings.
+3. Add join requests if they are needed after the basic workflow is comfortable.
+4. Add email delivery for verification codes.
+5. Consider reminders and historical seasons later.
 
 Automatic scheduling, SMS/email, player performance statistics, uploads, multiple leagues, and real-time updates are intentionally outside this first implementation. Refresh the page to see changes made in another browser session. Concurrent commissioner edits currently use last-write-wins; there is no edit-version conflict UI or audit log.
 
