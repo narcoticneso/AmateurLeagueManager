@@ -4,9 +4,7 @@ Last updated: November 20, 2026.
 
 ## Standing collaboration rule
 
-**The assistant may execute requested Git and GitHub work as `narcoticneso`.** This replaces the earlier prohibition on staging, committing, pushing, and GitHub publishing. Requests such as "let's commit" authorize the relevant action; unrelated publishing and destructive operations still need task-specific authorization. See the local `../AGENTS.md`.
-
-Git and GitHub work performed for Nebojsa belongs to his `narcoticneso` identity, never ChatGPT, Codex, OpenAI, or an assistant account. Verify the authenticated account before GitHub changes and both author and committer identity before local commits. Do not add assistant authorship, co-authorship, ownership, assignments, or signatures. Preserve teammates' authorship and unrelated edits. Requested fetches and fast-forward-only pulls are allowed after checking local changes. Do not change persistent identity settings without authorization or invent an email address. Keep `AGENTS.md` local and do not reintroduce it on GitHub; it was removed from remote `main` at the user's request.
+**The assistant never stages, commits, or pushes.** The assistant only explains which files to include and supplies commands and suggested commit messages for the user to execute. This applies even when the user says "let's commit." Read-only Git checks, code edits, documentation updates, and appropriate tests are allowed. See `../AGENTS.md`.
 
 ## Product decisions
 
@@ -24,21 +22,10 @@ Developers: Rudra, Ryan, Lucas, Nebojsa, and Kiara. Each has a seeded account (`
 
 Accounts live in the `users` table. People sign up with name, email, and password and confirm with a six-digit code (printed to the server log until email delivery exists). Roles are derived, not chosen: commissioner is a flag on the account (developer accounts and `ALM_COMMISSIONER_EMAILS`), manager means a `MANAGER` row in `team_memberships`, and player means a roster entry linked through `players.user_id`. There is no view switcher.
 
-- Commissioner: create teams, edit team details through the API, manage rosters, schedule games, enter/correct scores, resolve score disputes, and manage the tournament. Team editing does not yet have a frontend control.
-- Manager: manage the assigned team's roster, submit game scores, confirm or dispute opposing submissions, and view league information.
-- Players with verified email accounts can submit join requests and view their own history. Public visitors have read-only access.
+- Commissioner: create teams, manage rosters, schedule games, enter/correct scores, and manage the tournament.
+- Manager: manage the assigned team's roster, link roster entries to accounts, and submit/confirm that team's scores.
+- Player/public visitor: read-only access.
 - Role restrictions are enforced by the Java backend as well as by visible controls.
-
-## Next story assignments
-
-The November 17 user-story document in the parent CS 498 folder records claims beside story headings. Preserve Kiara's, Rudra's, and Ryan's existing claims.
-
-- US-13, Edit my team ([issue #14](https://github.com/narcoticneso/AmateurLeagueManager/issues/14)): Luke (Lucas) owns the full story, including frontend and backend. Start with the editing UI and permission checks for a manager's own team; league changes and season changes retain their existing dependencies.
-- US-09, View my team as a manager ([issue #10](https://github.com/narcoticneso/AmateurLeagueManager/issues/10)): Nebojsa. The existing team page now shows league rank from the standings order alongside the name, roster, and season record. For this simple implementation, "status" means season activity derived from the team's games: no games scheduled, awaiting first result, season underway, or no upcoming games. Scheduled and postponed games count as remaining; cancelled games do not. This does not represent league membership approval or playoff qualification. If membership status is required later, coordinate with Rudra's US-16.
-- US-05, Request to join a team ([issue #6](https://github.com/narcoticneso/AmateurLeagueManager/issues/6)): Nebojsa. Implemented on `nebojsa-dev`: persisted requests, available-team selection, private status history, and an assigned-manager pending inbox. Uses real email accounts and existing manager memberships. Duplicate pending requests and requests from existing members are rejected. Requests do not change memberships or rosters; decisions remain Luke's US-14. See README for local testing and endpoint/schema details.
-- US-14, Approve join requests ([issue #15](https://github.com/narcoticneso/AmateurLeagueManager/issues/15)): Luke (Lucas), with a backend emphasis on persisted requests, authorization, and roster updates.
-- Ryan's account/membership foundation ([PR #44](https://github.com/narcoticneso/AmateurLeagueManager/pull/44)) was merged when checked on November 20 and integrated into `nebojsa-dev`. US-05 builds on it. Byteful's PR #45 was merged into main as narcoticneso, then integrated on nebojsa-dev; roles now derive from memberships and there is no view switcher. US-05/US-09 must remain on nebojsa-dev until the user requests their merge. Full US-14 acceptance also depends on participant profiles and in-app notifications.
-- All 34 original stories were verified to have GitHub issues. These claims were added to the document; GitHub assignees were not changed.
 
 ## Current implementation
 
@@ -50,11 +37,8 @@ The November 17 user-story document in the parent CS 498 folder records claims b
 - Fictional Oakwood Football sample season with six teams and basic player rosters.
 - Standings derive from final regular-season results; ties count as half a win. Tournament results do not affect regular-season standings.
 - A four-team cup with two semifinals and one championship. The commissioner schedules the championship between the semifinal winners.
-- League branding and season labels are currently fixed. All accounts use stored memberships; seeded developer accounts use email logins, and player memberships also come from linked roster entries.
-- Score submission, confirmation, dispute, and commissioner resolution are implemented. A scheduled task checks every minute for pending submissions older than 24 hours to auto-confirm. The integration suite covers manager score submission permissions; the full confirmation/dispute workflows are not covered.
+- League branding and season labels are currently fixed. Developer accounts and their team assignments are seeded demo data; the commissioner assigns managers and links roster entries in the app.
 - Seven integration tests passed during the initial implementation, and browser checks covered desktop/mobile layouts, login, role restrictions, saving games, and duplicate jersey validation. Run checks as appropriate when behavior changes; this is historical validation, not a guarantee of future edits.
-- November 20 validation for US-05: full Maven `verify` passed (16 tests plus frontend types/build, ESLint, Prettier, and Java checks). Browser checks on an isolated temporary database covered submitting a request, retaining it after reload/sign-in, manager delivery, and the phone layout. US-09 was committed and pushed to `nebojsa-dev` as `narcoticneso`. US-05 is implemented on the same branch; approval/denial remains US-14.
-- Integration with PR #45: `clean verify` passes all 16 tests. Browser checks confirm participants without a team can request one, history survives reload, and assigned managers see requests without switching views. Main's `V3__derived_roles.sql` is preserved; the join-request migration is now `V4__team_join_requests.sql`. An older development database that already applied `V3__team_join_requests.sql` needs a backed-up, one-time history reconciliation before use. On the original development machine this upgrade was tested on a copy, applied locally, and verified to preserve every account, team, roster, membership, and request. The original backup and upgrade logs are in ignored `.tools/account-integration/`. A copy also started successfully with normal Flyway settings afterward.
 
 ## Local setup
 
@@ -68,6 +52,6 @@ The November 17 user-story document in the parent CS 498 folder records claims b
 
 ## Deferred work
 
-Configurable league/season settings, a team-editing UI, join-request decisions and approved roster updates (US-14), reminders, historical seasons, uploads, detailed player statistics, and automatic scheduling remain deferred. Team editing is implemented in the API; score confirmation and disputes are implemented in both the API and frontend. User accounts, manager memberships, roster account links, and join-request submission/history are implemented.
+Configurable league/season settings, join requests, reminders, historical seasons, uploads, detailed player statistics, and automatic scheduling are not part of the completed starter.
 
 No project license has been selected. MIT was recommended as an option, but the team has not confirmed it. Do not add a license based on the recommendation alone.
