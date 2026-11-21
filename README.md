@@ -14,7 +14,7 @@ The interface takes inspiration from fantasy-football dashboards: dark surfaces,
 - Responsive layouts for desktop and phone browsers.
 - Account sign-up with email verification, and roles that come from what each account manages or plays for.
 - Commissioner tools to create teams, add/remove roster entries, schedule games, reschedule games, mark postponements/cancellations, and record or correct scores.
-- Manager tools to edit their own team's name, abbreviation, and color, add/remove players, and link roster entries to accounts.
+- Any signed-in account can create a team and becomes its manager. Managers edit their own team's name, abbreviation, and color, add/remove players, and link roster entries to accounts.
 - Read-only league, roster, and schedule access for players and visitors.
 - Automatic regular-season standings calculated from final results.
 - One four-team postseason cup with two semifinals and one championship. Matchups and advancement are entered manually.
@@ -130,7 +130,7 @@ Roles come from the account, not from a setting:
 | Role | Who | Permissions |
 | --- | --- | --- |
 | Commissioner | Developer accounts, plus any email listed in `ALM_COMMISSIONER_EMAILS` when it signs up | Create and edit teams; manage any roster; assign team managers; schedule games; enter/correct results; resolve score disputes |
-| Manager | An account the commissioner assigned to a team (**Assign manager** on a roster page) | Manage that team's roster, link roster entries to accounts, and submit or confirm that team's scores |
+| Manager | An account that created a team (**Create team** on the Teams page), or one the commissioner assigned (**Assign manager** on a roster page) | Edit that team's details, manage its roster, link roster entries to accounts, and submit or confirm its scores |
 | Player | An account linked to a roster entry (**Link account** on a roster page) | Read-only access; the team appears under **My team** |
 | Public visitor | Not signed in | Read-only access |
 
