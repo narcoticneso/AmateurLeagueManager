@@ -23,7 +23,7 @@ Developers: Rudra, Ryan, Lucas, Nebojsa, and Kiara. Each has a seeded account (`
 Accounts live in the `users` table. People sign up with name, email, and password and confirm with a six-digit code (printed to the server log until email delivery exists). Roles are derived, not chosen: commissioner is a flag on the account (developer accounts and `ALM_COMMISSIONER_EMAILS`), manager means a `MANAGER` row in `team_memberships`, and player means a roster entry linked through `players.user_id`. There is no view switcher.
 
 - Commissioner: create teams, manage rosters, schedule games, enter/correct scores, and manage the tournament.
-- Manager: manage the assigned team's roster, link roster entries to accounts, and submit/confirm that team's scores.
+- Manager: edit the team's name, abbreviation, and color, manage its roster, link roster entries to accounts, and submit/confirm that team's scores. Any signed-in account can create a team (league and season are fixed single choices for now) and becomes its manager; a commissioner creating a team types a manager name instead.
 - Player/public visitor: read-only access.
 - Role restrictions are enforced by the Java backend as well as by visible controls.
 
@@ -37,7 +37,7 @@ Accounts live in the `users` table. People sign up with name, email, and passwor
 - Fictional Oakwood Football sample season with six teams and basic player rosters.
 - Standings derive from final regular-season results; ties count as half a win. Tournament results do not affect regular-season standings.
 - A four-team cup with two semifinals and one championship. The commissioner schedules the championship between the semifinal winners.
-- League branding and season labels are currently fixed. Developer accounts and their team assignments are seeded demo data; the commissioner assigns managers and links roster entries in the app.
+- League branding and season labels are currently fixed. Developer accounts and their team assignments are seeded demo data; accounts become managers by creating a team or being assigned by the commissioner, and managers or the commissioner link roster entries in the app.
 - Seven integration tests passed during the initial implementation, and browser checks covered desktop/mobile layouts, login, role restrictions, saving games, and duplicate jersey validation. Run checks as appropriate when behavior changes; this is historical validation, not a guarantee of future edits.
 
 ## Local setup

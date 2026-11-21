@@ -3,7 +3,7 @@
   import TeamBadge from "$lib/components/TeamBadge.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
-  import { app, commissioner, openModal, playerCount, record } from "$lib/league.svelte";
+  import { app, openModal, playerCount, record } from "$lib/league.svelte";
 
   let query = $state("");
 
@@ -12,7 +12,7 @@
 
 <PageHeading eyebrow="THE NEIGHBORHOOD LINEUP" title="Teams & rosters" description="Meet the people who make this league.">
   {#snippet action()}
-    {#if commissioner()}
+    {#if app.session.username}
       <Button onclick={() => openModal("new-team")}>＋ Create team</Button>
     {/if}
   {/snippet}

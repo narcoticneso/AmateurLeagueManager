@@ -88,8 +88,11 @@ public class LeagueController {
 
     @PostMapping("/teams")
     public void createTeam(@RequestBody LeagueService.TeamInput input, Principal user) {
-        commissioner(user);
-        league.createTeam(input);
+        if (league.isCommissioner(user.getName())) {
+            league.createTeam(input);
+        } else {
+            league.createManagedTeam(input, user.getName());
+        }
     }
 
     @PutMapping("/teams/{teamId}")

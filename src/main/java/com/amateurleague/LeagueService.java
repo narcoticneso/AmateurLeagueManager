@@ -359,7 +359,7 @@ public class LeagueService {
     }
 
     @Transactional
-    public void createTeam(TeamInput input) {
+    public String createTeam(TeamInput input) {
         String name = text(input.name(), "Team name", 60);
         String abbreviation = text(input.abbreviation(), "Abbreviation", 3).toUpperCase(Locale.ROOT);
         if (!abbreviation.matches("[A-Z]{2,3}")) {
@@ -375,7 +375,14 @@ public class LeagueService {
         ) {
             fail("A team with that name already exists.");
         }
-        db.update("INSERT INTO teams VALUES (?, ?, ?, ?, ?)", UUID.randomUUID().toString(), name, abbreviation, input.color(), text(input.manager(), "Manager", 60));
+        String id = UUID.randomUUID().toString();
+        db.update("INSERT INTO teams VALUES (?, ?, ?, ?, ?)", id, name, abbreviation, input.color(), text(input.manager(), "Manager", 60));
+        return id;
+    }
+
+    @Transactional
+    public void createManagedTeam(TeamInput input, String email) {
+        assignTeamManager(createTeam(new TeamInput(input.name(), input.abbreviation(), input.color(), displayName(email))), email);
     }
 
     @Transactional

@@ -139,8 +139,6 @@ class LeagueApplicationTests {
         assertEquals(403, post("/games", game("wolves", "bears", "REGULAR", "SCHEDULED", null, null)).statusCode());
         assertEquals(403, post("/teams/bears/players", Map.of("name", "Test Player", "position", "QB", "number", 99)).statusCode());
         assertEquals(200, post("/teams/wolves/players", Map.of("name", "Test Player", "position", "QB", "number", 99)).statusCode());
-        var team = Map.of("name", "Test Team", "abbreviation", "TT", "color", "#123456", "manager", "Test");
-        assertEquals(403, post("/teams", team).statusCode());
         assertEquals(403, request("PUT", "/api/teams/wolves/manager", assign, "application/json", true).statusCode());
         var bears = league
             .players()
@@ -161,11 +159,41 @@ class LeagueApplicationTests {
     }
 
     @Test
+    void anyAccountCanCreateATeamAndBecomesItsManager() throws Exception {
+        var team = Map.of("name", "Test Owls", "abbreviation", "TO", "color", "#123456", "manager", "");
+        getSession();
+        assertEquals(401, post("/teams", team).statusCode());
+        account("captain@test.local");
+        login("captain@test.local");
+        assertEquals(200, post("/teams", team).statusCode());
+        var created = league
+            .teams()
+            .stream()
+            .filter(t -> t.name().equals("Test Owls"))
+            .findFirst()
+            .orElseThrow();
+        assertEquals("Test", created.manager());
+        assertEquals(created.id(), membership().get("teamId").asString());
+        assertEquals("MANAGER", membership().get("role").asString());
+        assertFalse(getSession().get("commissioner").asBoolean());
+        assertEquals(200, post("/teams/" + created.id() + "/players", Map.of("name", "First Player", "position", "QB", "number", 1)).statusCode());
+        var duplicate = post("/teams", Map.of("name", "test owls", "abbreviation", "TW", "color", "#123456", "manager", ""));
+        assertEquals(400, duplicate.statusCode());
+        assertEquals("A team with that name already exists.", json.readTree(duplicate.body()).get("message").asString());
+        assertEquals(7, league.teams().size());
+        var rename = json.writeValueAsString(Map.of("name", "Oakwood Owls", "abbreviation", "OO", "color", "#123456", "manager", ""));
+        assertEquals(200, request("PUT", "/api/teams/" + created.id(), rename, "application/json", true).statusCode());
+        var handOff = json.writeValueAsString(Map.of("email", "rudra@example.com"));
+        assertEquals(403, request("PUT", "/api/teams/" + created.id() + "/manager", handOff, "application/json", true).statusCode());
+    }
+
+    @Test
     void commissionerCanCreateTeamsScheduleAndCorrectResults() throws Exception {
         login("lucas@example.com");
         var team = Map.of("name", "Test Owls", "abbreviation", "TO", "color", "#123456", "manager", "Test");
         assertEquals(200, post("/teams", team).statusCode());
         assertEquals(7, league.teams().size());
+        assertEquals("hawks", membership().get("teamId").asString());
         assertEquals(200, post("/games", game("wolves", "bears", "REGULAR", "SCHEDULED", null, null)).statusCode());
         var g = league.games().getLast();
         assertNull(g.homeScore());
