@@ -51,12 +51,14 @@ public class LeagueController {
     public record ErrorMessage(String message) {}
 
     private final LeagueService league;
+    private final JoinRequestService joinRequests;
     private final EmailVerificationService verification;
     private final SecurityContextRepository securityContextRepository;
     private static final Map<String, String> DEVELOPER_TEAMS = Map.ofEntries(entry("rudra", "wolves"), entry("ryan", "bears"), entry("lucas", "hawks"), entry("nebojsa", "tigers"), entry("kiara", "mustangs"));
 
-    public LeagueController(LeagueService league, EmailVerificationService verification, SecurityContextRepository securityContextRepository) {
+    public LeagueController(LeagueService league, JoinRequestService joinRequests, EmailVerificationService verification, SecurityContextRepository securityContextRepository) {
         this.league = league;
+        this.joinRequests = joinRequests;
         this.verification = verification;
         this.securityContextRepository = securityContextRepository;
     }
@@ -89,6 +91,27 @@ public class LeagueController {
     @GetMapping("/state")
     public LeagueState state() {
         return new LeagueState(league.teams(), league.players(), league.games(), league.standings(), league.scoreSubmissions());
+    }
+
+    @GetMapping("/join-requests/teams")
+    public List<LeagueService.Team> availableJoinTeams(Principal user) {
+        return joinRequests.availableTeams(user.getName());
+    }
+
+    @GetMapping("/join-requests")
+    public List<JoinRequestService.JoinRequest> joinRequestHistory(Principal user) {
+        return joinRequests.history(user.getName());
+    }
+
+    @PostMapping("/join-requests")
+    @ResponseStatus(CREATED)
+    public void requestToJoin(@RequestBody TeamSelectionInput input, Principal user) {
+        joinRequests.submit(user.getName(), input.teamId());
+    }
+
+    @GetMapping("/teams/{teamId}/join-requests")
+    public List<JoinRequestService.JoinRequest> teamJoinRequests(@PathVariable String teamId, Principal user) {
+        return joinRequests.pendingForTeam(user.getName(), teamId);
     }
 
     @GetMapping("/session")

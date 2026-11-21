@@ -4,6 +4,7 @@
   import PageHeading from "$lib/components/PageHeading.svelte";
   import SelectField from "$lib/components/SelectField.svelte";
   import TeamBadge from "$lib/components/TeamBadge.svelte";
+  import TeamJoinRequests from "$lib/components/TeamJoinRequests.svelte";
   import { Button } from "$lib/components/ui/button";
   import { positions } from "$lib/format";
   import { app, canEditRoster, commissioner, filters, openModal, playerCount, record, team } from "$lib/league.svelte";
@@ -74,6 +75,10 @@
       </div>
     </dl>
   </div>
+
+  {#if app.session.view === "MANAGER" && app.session.memberships.some((membership) => membership.teamId === id && membership.role === "MANAGER")}
+    {#key app.session.username + id}<TeamJoinRequests teamId={id} />{/key}
+  {/if}
 
   <div class="mb-[22px] flex flex-wrap items-center gap-2.5 max-sm:gap-[7px]">
     <SelectField bind:value={filters.position} options={positionOptions} label="Filter roster by position" class="w-auto min-w-[150px] max-sm:max-w-full max-sm:min-w-0 max-sm:text-[11px]" />

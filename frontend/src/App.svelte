@@ -10,6 +10,7 @@
   import Schedule from "$lib/pages/Schedule.svelte";
   import Standings from "$lib/pages/Standings.svelte";
   import Teams from "$lib/pages/Teams.svelte";
+  import JoinTeam from "$lib/pages/JoinTeam.svelte";
   import { route } from "$lib/router.svelte";
   import { cn } from "$lib/utils";
 
@@ -19,7 +20,12 @@
     ["teams", "Teams & rosters"],
     ["standings", "Standings"],
     ["playoffs", "Playoffs"],
-    ...(app.session.username ? ([["myteam", "My team"]] as [string, string][]) : []),
+    ...(app.session.username
+      ? ([
+          ["myteam", "My team"],
+          ["join", "Join a team"],
+        ] as [string, string][])
+      : []),
   ]);
   const breadcrumb = $derived(route.page === "team" ? "Team roster" : (links.find(([key]) => key === route.page)?.[1] ?? "Overview"));
 
@@ -64,6 +70,8 @@
       <Standings />
     {:else if route.page === "playoffs"}
       <Playoffs />
+    {:else if route.page === "join"}
+      {#key app.session.username}<JoinTeam />{/key}
     {:else if route.page === "myteam"}
       <Roster id={app.session.teamId} />
     {:else if route.page === "team"}

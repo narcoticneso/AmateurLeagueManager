@@ -2,6 +2,7 @@ import type { components } from "./api-schema";
 
 type Schemas = components["schemas"];
 export type Team = Schemas["Team"];
+export type JoinRequest = Schemas["JoinRequest"];
 export type Player = Schemas["Player"];
 export type Game = Schemas["Game"];
 export type Standing = Schemas["Standing"];

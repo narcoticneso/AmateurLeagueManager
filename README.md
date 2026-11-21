@@ -16,7 +16,7 @@ The interface takes inspiration from fantasy-football dashboards: dark surfaces,
 - Commissioner tools to create teams, add/remove roster entries, schedule games, reschedule games, mark postponements/cancellations, and record or correct scores.
 - Manager tools to add/remove players on their own assigned team.
 - Team pages show league rank, season record, and season activity: no games scheduled, awaiting the first result, season underway, or no upcoming games. Postponed games still count as remaining; cancelled games do not.
-- Player view with read-only league, roster, and schedule access.
+- Verified email accounts can request to join a team and view their pending, approved, or denied request history. Assigned managers can see incoming pending requests; approval/denial controls are the next part of this workflow (US-14).
 - Automatic regular-season standings calculated from final results.
 - One four-team postseason cup with two semifinals and one championship. Matchups and advancement are entered manually.
 - Local database persistence across restarts.
@@ -140,14 +140,27 @@ Use the **view selector** after signing in. It preserves the account and switche
 | --- | --- |
 | Commissioner | Create teams; manage any roster; schedule games; enter/correct results; manage cup matchups |
 | Manager | View the league; manage only the assigned team's roster |
-| Player | Read-only league and team access |
+| Player | Read league and team information; verified email accounts can send join requests |
 | Public visitor | Read-only access without signing in |
 
 Permissions are enforced in Java, including direct API requests. Switching browser tabs does not create independent roles: tabs sharing the same session share the selected view. Refresh another open tab after switching views.
 
-These are development accounts, not a complete public registration system. The app binds to `127.0.0.1` by default. It has not been deployed. Before hosting for real users, replace the demo credentials, add durable user/team membership management, configure HTTPS, and review public roster visibility.
+The demo logins are separate from verified email accounts. Registration and stored team memberships are available. Local registration logs verification codes to the server terminal; email delivery is not implemented. The app binds to `127.0.0.1` by default and has not been deployed.
 
 Each developer's password can be overridden independently before starting the server, using `ALM_PASSWORD_RUDRA`, `ALM_PASSWORD_RYAN`, `ALM_PASSWORD_LUCAS`, `ALM_PASSWORD_NEBOJSA`, and `ALM_PASSWORD_KIARA`. Do not commit real passwords.
+
+### Try join requests (US-05)
+
+1. Start the server using the commands above. The local configuration logs verification codes in its terminal (`app.email-verification.log-code=true`).
+2. Open **Sign in**, choose **Create a new account**, and register two email accounts: one manager and one participant. Complete verification using each code from the server terminal. Sign out between accounts.
+3. Sign in as a developer (for example, `nebojsa`), use commissioner view, open a team under **Teams & rosters**, and use **Assign manager** with the manager account's email.
+4. Sign out and sign in with the participant's email. Open **Join a team**, select the team, and click **Send join request**. It should appear as **Pending** under **My requests** and disappear from the available choices.
+5. Reload the page or sign out and back in. The request should still be there. The **Refresh** button reloads its latest status.
+6. Sign in with the manager account, switch to manager view, and open **My team** to see the incoming request. Only the currently assigned manager can read that team's inbox.
+
+Teams without an assigned account manager do not accept requests. Existing members and participants with a pending request cannot submit another request for that team. A denied request remains in history and permits another submission. Submitting a request does not add a player to the roster. Approving/denying requests and adding approved participants to the roster remain US-14; the history already displays those stored statuses. Without `-Pdev`, requests persist across server restarts; `-Pdev` resets the database on restart.
+
+For US-14 integration, `team_join_requests` stores the participant's `user_id`, `team_id`, `status` (`PENDING`, `APPROVED`, `DENIED`), and UTC `requested_at`. The authenticated endpoints are `GET /api/join-requests` (own history), `GET /api/join-requests/teams` (available teams), `POST /api/join-requests` with `{ "teamId": "..." }`, and `GET /api/teams/{teamId}/join-requests` (assigned manager's pending inbox). Decisions should update the existing request so history is retained.
 
 ## Game and standings rules
 
