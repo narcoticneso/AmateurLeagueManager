@@ -59,7 +59,8 @@ export function showToast(message: string) {
   toastTimer = setTimeout(() => (toast.visible = false), 3500);
 }
 
-export type ModalKind = "login" | "new-game" | "edit-game" | "tournament-game" | "new-team" | "new-player" | "remove-player" | "link-player-account" | "assign-team-manager" | "submit-score" | "dispute-score" | "confirm-score" | "resolve-score";
+export type ModalKind =
+  "login" | "new-game" | "edit-game" | "tournament-game" | "new-team" | "edit-team" | "new-player" | "remove-player" | "link-player-account" | "assign-team-manager" | "submit-score" | "dispute-score" | "confirm-score" | "resolve-score";
 
 export const modal = $state({ kind: null as ModalKind | null, id: "" });
 

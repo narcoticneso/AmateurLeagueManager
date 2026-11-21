@@ -402,7 +402,8 @@ public class LeagueService {
         }
 
         // The team id never changes, so its players and games stay attached
-        db.update("UPDATE teams SET name = ?, abbreviation = ?, color = ?, manager = ? WHERE id = ?", name, abbreviation, input.color(), text(input.manager(), "Manager", 60), id);
+        // The manager is left alone because it is changed by assigning a manager account
+        db.update("UPDATE teams SET name = ?, abbreviation = ?, color = ? WHERE id = ?", name, abbreviation, input.color(), id);
     }
 
     @Transactional

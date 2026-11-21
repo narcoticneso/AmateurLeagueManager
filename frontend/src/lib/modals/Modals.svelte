@@ -17,7 +17,7 @@
   <LoginForm />
 {:else if modal.kind === "new-game" || modal.kind === "edit-game" || modal.kind === "tournament-game"}
   <GameForm />
-{:else if modal.kind === "new-team"}
+{:else if modal.kind === "new-team" || modal.kind === "edit-team"}
   <TeamForm />
 {:else if modal.kind === "new-player"}
   <PlayerForm />
