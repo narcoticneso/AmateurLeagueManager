@@ -2,7 +2,7 @@
   import Account from "$lib/components/Account.svelte";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import { Button } from "$lib/components/ui/button";
-  import { app, refresh, toast } from "$lib/league.svelte";
+  import { app, myTeamId, refresh, toast } from "$lib/league.svelte";
   import Modals from "$lib/modals/Modals.svelte";
   import Overview from "$lib/pages/Overview.svelte";
   import Playoffs from "$lib/pages/Playoffs.svelte";
@@ -20,12 +20,8 @@
     ["teams", "Teams & rosters"],
     ["standings", "Standings"],
     ["playoffs", "Playoffs"],
-    ...(app.session.username
-      ? ([
-          ["myteam", "My team"],
-          ["join", "Join a team"],
-        ] as [string, string][])
-      : []),
+    ...(myTeamId() ? ([["myteam", "My team"]] as [string, string][]) : []),
+    ...(app.session.username ? ([["join", "Join a team"]] as [string, string][]) : []),
   ]);
   const breadcrumb = $derived(route.page === "team" ? "Team roster" : (links.find(([key]) => key === route.page)?.[1] ?? "Overview"));
 
@@ -73,7 +69,7 @@
     {:else if route.page === "join"}
       {#key app.session.username}<JoinTeam />{/key}
     {:else if route.page === "myteam"}
-      <Roster id={app.session.teamId} />
+      <Roster id={myTeamId()} />
     {:else if route.page === "team"}
       <Roster id={route.id} />
     {:else}

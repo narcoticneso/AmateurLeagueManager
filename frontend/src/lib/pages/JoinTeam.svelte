@@ -13,7 +13,6 @@
   let loading = $state(true);
   let saving = $state(false);
   let error = $state("");
-  const isDemo = $derived(app.session.username !== "" && !app.session.username.includes("@"));
   const options = $derived([{ value: "", label: "Choose a team" }, ...teams.map((team) => ({ value: team.id, label: `${team.name} · ${team.manager}` }))]);
   const statusLabels: Record<string, string> = { PENDING: "Pending", APPROVED: "Approved", DENIED: "Denied" };
 
@@ -49,7 +48,7 @@
   }
 
   onMount(() => {
-    if (app.session.username && !isDemo) {
+    if (app.session.username) {
       void load();
     } else {
       loading = false;
@@ -62,8 +61,6 @@
 {#if !app.session.username}
   <p class="mb-4 text-muted">Sign in to send a join request and see your history.</p>
   <Button onclick={() => openModal("login")}>Sign in</Button>
-{:else if isDemo}
-  <p class="text-muted">Join requests use verified email accounts. Sign out of this demo login, then create an account or sign in with your email.</p>
 {:else}
   <section class={`${panel} mb-6 p-5`} aria-label="Request to join a team">
     <h2 class="mb-3 text-xl">Choose your team</h2>

@@ -73,7 +73,7 @@ public class JoinRequestService {
         // Lock the participant so simultaneous submissions cannot create duplicate pending requests.
         List<String> accounts = db.query("SELECT id FROM users WHERE email = ? FOR UPDATE", (r, n) -> r.getString("id"), email);
         if (accounts.isEmpty()) {
-            throw new ResponseStatusException(BAD_REQUEST, "Create and sign in to a verified email account to request a team. Demo logins cannot submit requests.");
+            throw new ResponseStatusException(BAD_REQUEST, "Create and sign in to an account to request a team.");
         }
         if (teamId == null || teamId.isBlank()) {
             throw new ResponseStatusException(BAD_REQUEST, "Choose a team.");

@@ -34,7 +34,9 @@
       .join("");
 </script>
 
-{#if !t}
+{#if !t && app.session.username}
+  <EmptyState title="Your team is waiting" description="You aren't on a team yet. Ask a team manager to link you to their roster." />
+{:else if !t}
   <EmptyState title="Your team is waiting" description="Sign in to view your assigned team.">
     {#snippet action()}
       <Button onclick={() => openModal("login")}>Sign in</Button>
@@ -76,7 +78,7 @@
     </dl>
   </div>
 
-  {#if app.session.view === "MANAGER" && app.session.memberships.some((membership) => membership.teamId === id && membership.role === "MANAGER")}
+  {#if app.session.memberships.some((membership) => membership.teamId === id && membership.role === "MANAGER")}
     {#key app.session.username + id}<TeamJoinRequests teamId={id} />{/key}
   {/if}
 
