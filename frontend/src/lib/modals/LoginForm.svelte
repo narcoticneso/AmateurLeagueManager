@@ -61,12 +61,12 @@
 
 <FormDialog {title} {submitText} onsubmit={submit}>
   {#if mode === "login"}
-    <p class={formHelp}>Sign in with your account email, or use a local developer username for testing.</p>
+    <p class={formHelp}>Sign in with your account email and password.</p>
 
     <div class={formGrid}>
       <Label class="col-span-full">
-        Username or email
-        <Input bind:value={username} autocomplete="username" placeholder="Email or developer username" required />
+        Email
+        <Input type="email" bind:value={username} autocomplete="username" required />
       </Label>
 
       <Label class="col-span-full">

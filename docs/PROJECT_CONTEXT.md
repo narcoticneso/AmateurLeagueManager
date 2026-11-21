@@ -1,6 +1,6 @@
 # Amateur League Manager context
 
-Last updated: November 5, 2026.
+Last updated: November 20, 2026.
 
 ## Standing collaboration rule
 
@@ -18,10 +18,12 @@ Last updated: November 5, 2026.
 
 ## People and roles
 
-Developers: Rudra, Ryan, Lucas, Nebojsa, and Kiara. Each has a separate development account with commissioner access and can switch the current session to commissioner, manager, or player view.
+Developers: Rudra, Ryan, Lucas, Nebojsa, and Kiara. Each has a seeded account (`<name>@example.com`) that is a commissioner and manages one demo team.
+
+Accounts live in the `users` table. People sign up with name, email, and password and confirm with a six-digit code (printed to the server log until email delivery exists). Roles are derived, not chosen: commissioner is a flag on the account (developer accounts and `ALM_COMMISSIONER_EMAILS`), manager means a `MANAGER` row in `team_memberships`, and player means a roster entry linked through `players.user_id`. There is no view switcher.
 
 - Commissioner: create teams, manage rosters, schedule games, enter/correct scores, and manage the tournament.
-- Manager: manage the assigned team's roster and view league information.
+- Manager: manage the assigned team's roster, link roster entries to accounts, and submit/confirm that team's scores.
 - Player/public visitor: read-only access.
 - Role restrictions are enforced by the Java backend as well as by visible controls.
 
@@ -35,7 +37,7 @@ Developers: Rudra, Ryan, Lucas, Nebojsa, and Kiara. Each has a separate developm
 - Fictional Oakwood Football sample season with six teams and basic player rosters.
 - Standings derive from final regular-season results; ties count as half a win. Tournament results do not affect regular-season standings.
 - A four-team cup with two semifinals and one championship. The commissioner schedules the championship between the semifinal winners.
-- League branding and season labels are currently fixed. User/team assignments are seeded development configuration.
+- League branding and season labels are currently fixed. Developer accounts and their team assignments are seeded demo data; the commissioner assigns managers and links roster entries in the app.
 - Seven integration tests passed during the initial implementation, and browser checks covered desktop/mobile layouts, login, role restrictions, saving games, and duplicate jersey validation. Run checks as appropriate when behavior changes; this is historical validation, not a guarantee of future edits.
 
 ## Local setup
@@ -45,11 +47,11 @@ Developers: Rudra, Ryan, Lucas, Nebojsa, and Kiara. Each has a separate developm
 - For frontend work, `mvnw spring-boot:run -Pdev` also starts the Vite dev server on port 5173.
 - The configured default is `http://localhost:8080`; the `PORT` environment variable can override it. On November 3, the user's running server was verified on **8081**. Check the actual listener/startup output before diagnosing a connection issue.
 - Keep the server terminal open while using the website. Do not stop a server the user started merely to clean up a troubleshooting task.
-- Local demo usernames: `rudra`, `ryan`, `lucas`, `nebojsa`, `kiara`. The documented demo password is `neighborhood-demo`; environment variables can override it per account.
+- Local demo accounts: `rudra@example.com`, `ryan@example.com`, `lucas@example.com`, `nebojsa@example.com`, `kiara@example.com`. The documented demo password is `neighborhood-demo`; `ALM_PASSWORD_<NAME>` overrides it per account.
 - `.tools/`, `data/`, `target/`, `frontend/node/`, `frontend/node_modules/`, logs, and `.env` remain ignored. Do not stage them or suggest including them in a commit.
 
 ## Deferred work
 
-Configurable league/season settings, team editing, persisted user memberships, join requests, reminders, score disputes, historical seasons, uploads, detailed player statistics, and automatic scheduling are not part of the completed starter.
+Configurable league/season settings, join requests, reminders, historical seasons, uploads, detailed player statistics, and automatic scheduling are not part of the completed starter.
 
 No project license has been selected. MIT was recommended as an option, but the team has not confirmed it. Do not add a license based on the recommendation alone.

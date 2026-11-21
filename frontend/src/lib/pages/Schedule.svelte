@@ -5,7 +5,7 @@
   import ScheduleButton from "$lib/components/ScheduleButton.svelte";
   import SelectField from "$lib/components/SelectField.svelte";
   import { Button } from "$lib/components/ui/button";
-  import { app, commissioner, filters, openModal, teamName } from "$lib/league.svelte";
+  import { app, commissioner, filters, managedTeamIds, openModal, teamName } from "$lib/league.svelte";
   import { formHelp, panel, panelHeader, upcomingList, upcomingRow } from "$lib/styles";
   import { cn } from "$lib/utils";
 
@@ -20,7 +20,7 @@
   const games = $derived(app.league.games.filter((g) => (filters.schedule === "ALL" || g.status === filters.schedule) && (filters.week === "ALL" || g.week === Number(filters.week))));
   const weekOptions = $derived([{ value: "ALL", label: "All weeks" }, ...[...new Set(app.league.games.map((g) => g.week))].sort((a, b) => a - b).map((w) => ({ value: String(w), label: `Week ${w}` }))]);
 
-  const myGames = $derived(app.league.games.filter((g) => (g.homeId === app.session.teamId || g.awayId === app.session.teamId) && g.status === "SCHEDULED"));
+  const myGames = $derived(app.league.games.filter((g) => (managedTeamIds().includes(g.homeId) || managedTeamIds().includes(g.awayId)) && g.status === "SCHEDULED"));
   const pending = $derived(
     app.league.scoreSubmissions.flatMap((s) => {
       const game = myGames.find((g) => g.id === s.gameId);
@@ -57,7 +57,7 @@
   <EmptyState title="No games here yet" description="Choose another filter or schedule a new matchup." />
 {/if}
 
-{#if app.session.username && app.session.view === "MANAGER"}
+{#if managedTeamIds().length}
   <section class={cn(panel, "mt-7")}>
     <div class={panelHeader}>
       <h2>Game scores</h2>

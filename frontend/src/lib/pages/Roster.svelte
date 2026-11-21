@@ -23,7 +23,9 @@
       .join("");
 </script>
 
-{#if !t}
+{#if !t && app.session.username}
+  <EmptyState title="Your team is waiting" description="You aren't on a team yet. Ask a team manager to link you to their roster." />
+{:else if !t}
   <EmptyState title="Your team is waiting" description="Sign in to view your assigned team.">
     {#snippet action()}
       <Button onclick={() => openModal("login")}>Sign in</Button>

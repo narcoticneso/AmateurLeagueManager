@@ -13,7 +13,6 @@ export type TeamInput = Schemas["TeamInput"];
 export type PlayerInput = Schemas["PlayerInput"];
 export type ScoreInput = Schemas["ScoreInput"];
 export type ScoreResponseInput = Schemas["ScoreResponseInput"];
-export type ViewInput = Schemas["ViewInput"];
 
 let csrfToken = "";
 
@@ -39,8 +38,7 @@ export async function api<T = null>(path: string, method = "GET", body?: object 
     const detail = (await response.json().catch(() => null)) as {
       message?: string;
     } | null;
-    const fallback =
-      response.status === 401 ? "Sign in with your account email and password." : response.status === 403 ? "This action is not available in your current view. Refresh if your session expired." : "Unable to save changes. Please try again.";
+    const fallback = response.status === 401 ? "Sign in with your account email and password." : response.status === 403 ? "You don't have permission to do that. Refresh if your session expired." : "Unable to save changes. Please try again.";
     throw new Error(detail?.message || fallback);
   }
   const text = await response.text();

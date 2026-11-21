@@ -22,7 +22,7 @@ public class EmailVerificationService {
 
     public record VerifiedUser(String id, String email, String displayName) {}
 
-    private record StoredCode(String hash, String displayName, String passwordHash, String accountRole, LocalDateTime expiresAt, int attempts) {}
+    private record StoredCode(String hash, String displayName, String passwordHash, LocalDateTime expiresAt, int attempts) {}
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder();
@@ -78,15 +78,14 @@ public class EmailVerificationService {
         db.update(
             """
             INSERT INTO email_verification_codes
-            (id, email, code_hash, display_name, password_hash, account_role, expires_at, attempts, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+            (id, email, code_hash, display_name, password_hash, expires_at, attempts, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?)
             """,
             UUID.randomUUID().toString(),
             email,
             hash,
             displayName,
             passwordHash,
-            "PLAYER",
             now.plusMinutes(CODE_EXPIRATION_MINUTES),
             now
         );
@@ -106,13 +105,13 @@ public class EmailVerificationService {
 
         List<StoredCode> rows = db.query(
             """
-            SELECT code_hash, display_name, password_hash, account_role, expires_at, attempts
+            SELECT code_hash, display_name, password_hash, expires_at, attempts
             FROM email_verification_codes
             WHERE email = ?
             ORDER BY created_at DESC
             LIMIT 1
             """,
-            (rs, row) -> new StoredCode(rs.getString("code_hash"), rs.getString("display_name"), rs.getString("password_hash"), rs.getString("account_role"), rs.getTimestamp("expires_at").toLocalDateTime(), rs.getInt("attempts")),
+            (rs, row) -> new StoredCode(rs.getString("code_hash"), rs.getString("display_name"), rs.getString("password_hash"), rs.getTimestamp("expires_at").toLocalDateTime(), rs.getInt("attempts")),
             email
         );
 
@@ -147,12 +146,12 @@ public class EmailVerificationService {
         VerifiedUser user = new VerifiedUser(UUID.randomUUID().toString(), email, stored.displayName());
 
         db.update(
-            "INSERT INTO users (id, email, display_name, password_hash, account_role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO users (id, email, display_name, password_hash, commissioner, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             user.id(),
             user.email(),
             user.displayName(),
             stored.passwordHash(),
-            commissionerEmails.contains(user.email()) ? "COMMISSIONER" : stored.accountRole(),
+            commissionerEmails.contains(user.email()),
             LocalDateTime.now(UTC)
         );
 

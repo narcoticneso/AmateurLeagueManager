@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -35,9 +36,12 @@ class LeagueApplicationTests {
 
     @BeforeEach
     void reset() {
+        db.update("DELETE FROM team_memberships");
+        db.update("DELETE FROM score_submissions");
         db.update("DELETE FROM games");
         db.update("DELETE FROM players");
         db.update("DELETE FROM teams");
+        db.update("DELETE FROM users WHERE NOT commissioner");
         demo.run();
         client = HttpClient.newBuilder().cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL)).build();
     }
@@ -59,11 +63,25 @@ class LeagueApplicationTests {
         return result;
     }
 
-    void login(String name) throws Exception {
+    void login(String email) throws Exception {
         getSession();
-        var response = request("POST", "/api/login", "username=" + name + "&password=neighborhood-demo", "application/x-www-form-urlencoded", true);
+        var response = request("POST", "/api/login", "username=" + email + "&password=neighborhood-demo", "application/x-www-form-urlencoded", true);
         assertEquals(204, response.statusCode());
-        assertEquals(name, getSession().get("username").asString());
+        assertEquals(email, getSession().get("username").asString());
+    }
+
+    void logout() throws Exception {
+        assertEquals(204, request("POST", "/api/logout", null, null, true).statusCode());
+    }
+
+    void account(String email) {
+        db.update("INSERT INTO users (id, email, display_name, password_hash, commissioner, created_at) VALUES (?, ?, 'Test', ?, FALSE, CURRENT_TIMESTAMP)", email, email, new BCryptPasswordEncoder().encode("neighborhood-demo"));
+    }
+
+    JsonNode membership() throws Exception {
+        JsonNode memberships = getSession().get("memberships");
+        assertEquals(1, memberships.size());
+        return memberships.get(0);
     }
 
     HttpResponse<String> post(String path, Object input) throws Exception {
@@ -80,39 +98,71 @@ class LeagueApplicationTests {
         assertEquals(200, request("GET", "/api/state", null, null, false).statusCode());
         getSession();
         assertEquals(401, post("/games", game("wolves", "bears", "REGULAR", "SCHEDULED", null, null)).statusCode());
-        login("rudra");
+        login("rudra@example.com");
         assertEquals(403, request("POST", "/api/games", "{}", "application/json", false).statusCode());
     }
 
     @Test
-    void allFiveDevelopersCanSignInAndSwitchViews() throws Exception {
-        for (String name : new String[] { "rudra", "ryan", "lucas", "nebojsa", "kiara" }) {
-            login(name);
-            assertEquals("COMMISSIONER", getSession().get("view").asString());
-            for (String view : new String[] { "MANAGER", "PLAYER", "COMMISSIONER" }) {
-                assertEquals(200, post("/view", Map.of("view", view)).statusCode());
-                assertEquals(view, getSession().get("view").asString());
-            }
-            assertEquals(204, request("POST", "/api/logout", null, null, true).statusCode());
+    void allFiveDevelopersAreCommissionersWhoManageTheirTeams() throws Exception {
+        String[][] developers = { { "rudra", "wolves" }, { "ryan", "bears" }, { "lucas", "hawks" }, { "nebojsa", "tigers" }, { "kiara", "mustangs" } };
+        for (String[] developer : developers) {
+            login(developer[0] + "@example.com");
+            assertTrue(getSession().get("commissioner").asBoolean());
+            assertEquals(developer[1], membership().get("teamId").asString());
+            assertEquals("MANAGER", membership().get("role").asString());
+            logout();
         }
     }
 
     @Test
-    void rolePermissionsAreEnforcedOnServer() throws Exception {
-        login("rudra");
-        assertEquals(200, post("/view", Map.of("view", "MANAGER")).statusCode());
+    void rolesComeFromMembershipsAndAreEnforcedOnServer() throws Exception {
+        account("manager@test.local");
+        account("player@test.local");
+        login("rudra@example.com");
+        var wolves = league
+            .players()
+            .stream()
+            .filter(p -> p.teamId().equals("wolves"))
+            .toList();
+        var assign = json.writeValueAsString(Map.of("email", "manager@test.local"));
+        assertEquals(200, request("PUT", "/api/teams/wolves/manager", assign, "application/json", true).statusCode());
+        assertEquals(200, post("/teams/wolves/players/" + wolves.get(0).id() + "/account", Map.of("email", "player@test.local")).statusCode());
+        assertEquals(400, post("/teams/wolves/players/" + wolves.get(1).id() + "/account", Map.of("email", "player@test.local")).statusCode());
+        assertTrue(getSession().get("memberships").isEmpty());
+        assertEquals(200, post("/teams/wolves/players", Map.of("name", "Commissioner Pick", "position", "QB", "number", 97)).statusCode());
+        logout();
+
+        login("manager@test.local");
+        assertFalse(getSession().get("commissioner").asBoolean());
+        assertEquals("wolves", membership().get("teamId").asString());
+        assertEquals("MANAGER", membership().get("role").asString());
         assertEquals(403, post("/games", game("wolves", "bears", "REGULAR", "SCHEDULED", null, null)).statusCode());
         assertEquals(403, post("/teams/bears/players", Map.of("name", "Test Player", "position", "QB", "number", 99)).statusCode());
         assertEquals(200, post("/teams/wolves/players", Map.of("name", "Test Player", "position", "QB", "number", 99)).statusCode());
-        assertEquals(200, post("/view", Map.of("view", "PLAYER")).statusCode());
-        assertEquals(403, post("/teams/wolves/players", Map.of("name", "Another Player", "position", "QB", "number", 98)).statusCode());
         var team = Map.of("name", "Test Team", "abbreviation", "TT", "color", "#123456", "manager", "Test");
         assertEquals(403, post("/teams", team).statusCode());
+        assertEquals(403, request("PUT", "/api/teams/wolves/manager", assign, "application/json", true).statusCode());
+        var bears = league
+            .players()
+            .stream()
+            .filter(p -> p.teamId().equals("bears"))
+            .findFirst()
+            .orElseThrow();
+        assertEquals(403, post("/teams/bears/players/" + bears.id() + "/account", Map.of("email", "player@test.local")).statusCode());
+        assertEquals(200, post("/games/week6-0/scores", Map.of("homeScore", 21, "awayScore", 14)).statusCode());
+        assertEquals(403, post("/games/week6-1/scores", Map.of("homeScore", 21, "awayScore", 14)).statusCode());
+        logout();
+
+        login("player@test.local");
+        assertFalse(getSession().get("commissioner").asBoolean());
+        assertEquals("wolves", membership().get("teamId").asString());
+        assertEquals("PLAYER", membership().get("role").asString());
+        assertEquals(403, post("/teams/wolves/players", Map.of("name", "Another Player", "position", "QB", "number", 98)).statusCode());
     }
 
     @Test
     void commissionerCanCreateTeamsScheduleAndCorrectResults() throws Exception {
-        login("lucas");
+        login("lucas@example.com");
         var team = Map.of("name", "Test Owls", "abbreviation", "TO", "color", "#123456", "manager", "Test");
         assertEquals(200, post("/teams", team).statusCode());
         assertEquals(7, league.teams().size());
@@ -135,7 +185,7 @@ class LeagueApplicationTests {
 
     @Test
     void commissionerCanEditTeamsAndInvalidEditsAreRejected() throws Exception {
-        login("lucas");
+        login("lucas@example.com");
         var edit = json.writeValueAsString(Map.of("name", "Lakewood Timberwolves", "abbreviation", "lt", "color", "#123456", "manager", "Test"));
         assertEquals(200, request("PUT", "/api/teams/wolves", edit, "application/json", true).statusCode());
         var team = league.requireTeam("wolves");
@@ -159,7 +209,9 @@ class LeagueApplicationTests {
         var badColor = json.writeValueAsString(Map.of("name", "Lakewood Wolves", "abbreviation", "LW", "color", "green", "manager", "Test"));
         assertEquals(400, request("PUT", "/api/teams/wolves", badColor, "application/json", true).statusCode());
         assertEquals(404, request("PUT", "/api/teams/missing", edit, "application/json", true).statusCode());
-        assertEquals(200, post("/view", Map.of("view", "MANAGER")).statusCode());
+        logout();
+        account("player@test.local");
+        login("player@test.local");
         assertEquals(403, request("PUT", "/api/teams/wolves", edit, "application/json", true).statusCode());
     }
 
