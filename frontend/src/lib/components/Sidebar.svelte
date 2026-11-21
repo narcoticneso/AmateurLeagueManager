@@ -18,6 +18,7 @@
     standings: ChartColumn,
     playoffs: Trophy,
     myteam: Shirt,
+    join: Users,
   };
 </script>
 

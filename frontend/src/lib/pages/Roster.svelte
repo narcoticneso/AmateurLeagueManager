@@ -4,6 +4,7 @@
   import PageHeading from "$lib/components/PageHeading.svelte";
   import SelectField from "$lib/components/SelectField.svelte";
   import TeamBadge from "$lib/components/TeamBadge.svelte";
+  import TeamJoinRequests from "$lib/components/TeamJoinRequests.svelte";
   import { Button } from "$lib/components/ui/button";
   import { positions } from "$lib/format";
   import { app, canEditRoster, commissioner, filters, openModal, playerCount, record, team } from "$lib/league.svelte";
@@ -13,6 +14,16 @@
   let { id }: { id: string } = $props();
 
   const t = $derived(team(id));
+  const rank = $derived(app.league.standings.findIndex((s) => s.teamId === id) + 1);
+  const teamGames = $derived(app.league.games.filter((g) => g.homeId === id || g.awayId === id));
+  const seasonStatus = $derived.by(() => {
+    const hasResults = teamGames.some((g) => g.status === "FINAL");
+    const hasGamesRemaining = teamGames.some((g) => g.status === "SCHEDULED" || g.status === "POSTPONED");
+    if (hasGamesRemaining) {
+      return hasResults ? "Season underway" : "Awaiting first result";
+    }
+    return hasResults ? "No upcoming games" : "No games scheduled";
+  });
   const roster = $derived(app.league.players.filter((p) => p.teamId === id && (filters.position === "ALL" || p.position === filters.position)));
   const positionOptions = [{ value: "ALL", label: "All positions" }, ...positions.map((p) => ({ value: p, label: p }))];
   const initials = (name: string) =>
@@ -43,20 +54,33 @@
     {/snippet}
   </PageHeading>
 
-  <div class="mb-[22px] flex items-center gap-[22px] rounded-[9px] border border-line bg-panel p-[26px] max-sm:gap-3.5 max-sm:px-[15px] max-sm:py-5">
+  <div class="mb-[22px] flex flex-wrap items-center gap-[22px] rounded-[9px] border border-line bg-panel p-[26px] max-sm:gap-3.5 max-sm:px-[15px] max-sm:py-5">
     <TeamBadge {id} size="large" />
-    <div>
+    <div class="min-w-0 flex-1">
       <span class="mb-[7px] block mini-label">FALL 2026 · OAKWOOD FOOTBALL</span>
-      <h2 class="max-sm:text-[24px]">{t.name}</h2>
+      <h2 class="break-words max-sm:text-[24px]">{t.name}</h2>
       <p class="mt-1.5 text-xs text-muted max-sm:text-[10px]">
         Manager: {t.manager} · {playerCount(id)} players
       </p>
+      <p class="mt-2 text-xs text-muted">Season status: <span class="text-soft">{seasonStatus}</span></p>
     </div>
-    <div class="ml-auto text-right">
-      <strong class="block font-display text-[40px] leading-normal font-semibold max-sm:text-[29px]">{record(id)}</strong>
-      <span class="text-[10px] text-muted max-sm:text-[8px]">SEASON RECORD</span>
-    </div>
+    <dl class="ml-auto grid grid-cols-2 gap-6 text-right max-sm:w-full max-sm:border-t max-sm:border-line max-sm:pt-4 max-sm:text-left">
+      <div>
+        <dt class="text-[10px] text-muted">LEAGUE RANK</dt>
+        <dd class="font-display text-[32px] font-semibold max-sm:text-[29px]">
+          {#if rank > 0}#{rank}<span class="ml-1 font-sans text-xs font-normal text-muted">of {app.league.standings.length}</span>{:else}—{/if}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-[10px] text-muted">SEASON RECORD</dt>
+        <dd class="font-display text-[32px] font-semibold max-sm:text-[29px]">{record(id)}</dd>
+      </div>
+    </dl>
   </div>
+
+  {#if app.session.memberships.some((membership) => membership.teamId === id && membership.role === "MANAGER")}
+    {#key app.session.username + id}<TeamJoinRequests teamId={id} />{/key}
+  {/if}
 
   <div class="mb-[22px] flex flex-wrap items-center gap-2.5 max-sm:gap-[7px]">
     <SelectField bind:value={filters.position} options={positionOptions} label="Filter roster by position" class="w-auto min-w-[150px] max-sm:max-w-full max-sm:min-w-0 max-sm:text-[11px]" />
@@ -109,7 +133,7 @@
     <h2 class="font-sans text-xs font-semibold">Team schedule</h2>
   </div>
   <div class="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-[17px] max-lg:grid-cols-2 max-sm:grid-cols-1">
-    {#each app.league.games.filter((g) => g.homeId === id || g.awayId === id) as g (g.id)}
+    {#each teamGames as g (g.id)}
       <GameCard game={g} full />
     {/each}
   </div>
