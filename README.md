@@ -114,6 +114,8 @@ Start the app with the `dev` profile to get hot reload:
 sh ./mvnw spring-boot:run -Pdev
 ```
 
+The `dev` profile uses an in-memory H2 database. It is recreated from the Flyway migrations each time the app starts, so data entered during a dev session is discarded when the app stops. Runs without `-Pdev` continue to use the persistent local database under `data/`.
+
 Then open **http://localhost:5173**. `Ctrl+C` stops both servers. Java changes still need a restart.
 
 Frontend code is in `frontend/src/`, and the theme (colors, fonts, breakpoints) is in `frontend/src/app.css`. Before committing, run `.\mvnw.cmd -Pformat` (or `sh ./mvnw -Pformat`) to format the Java and frontend code with Prettier. CI fails on unformatted code, compiler or Error Prone warnings, type errors, ESLint errors, and any `if`/`else`/`for`/`while` without braces (formatting won't add them for you).
