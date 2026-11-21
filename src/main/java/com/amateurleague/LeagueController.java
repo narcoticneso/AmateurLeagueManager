@@ -30,6 +30,8 @@ public class LeagueController {
 
     public record JoinRequestInput(String teamId) {}
 
+    public record JoinDecisionInput(Boolean approve, @Schema(types = { "string", "null" }) String position, @Schema(types = { "integer", "null" }) Integer number) {}
+
     public record RegistrationInput(String email, String displayName, String password) {}
 
     public record VerificationInput(String email, String code) {}
@@ -100,6 +102,11 @@ public class LeagueController {
     @GetMapping("/teams/{teamId}/join-requests")
     public List<JoinRequestService.JoinRequest> teamJoinRequests(@PathVariable String teamId, Principal user) {
         return joinRequests.pendingForTeam(user.getName(), teamId);
+    }
+
+    @PostMapping("/join-requests/{requestId}/decision")
+    public void decideJoinRequest(@PathVariable String requestId, @RequestBody JoinDecisionInput input, Principal user) {
+        joinRequests.decide(user.getName(), requestId, Boolean.TRUE.equals(input.approve()), input.position(), input.number());
     }
 
     @GetMapping("/session")

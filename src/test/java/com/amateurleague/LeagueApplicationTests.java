@@ -158,6 +158,71 @@ class LeagueApplicationTests {
     }
 
     @Test
+    void managersApproveOrDenyJoinRequestsForTheirOwnTeam() throws Exception {
+        joinAccounts();
+        login("participant@example.com");
+        assertEquals(201, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        String first = json
+            .readTree(request("GET", "/api/join-requests", null, null, false).body())
+            .get(0)
+            .get("id")
+            .asString();
+        assertEquals(403, post("/join-requests/" + first + "/decision", Map.of("approve", true, "position", "WR", "number", 88)).statusCode());
+        login("rudra@example.com");
+        assertEquals(403, post("/join-requests/" + first + "/decision", Map.of("approve", false)).statusCode());
+        login("manager@example.com");
+        assertEquals(404, post("/join-requests/missing/decision", Map.of("approve", false)).statusCode());
+        assertEquals(200, post("/join-requests/" + first + "/decision", Map.of("approve", false)).statusCode());
+        assertEquals(0, json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body()).size());
+        assertEquals(409, post("/join-requests/" + first + "/decision", Map.of("approve", true, "position", "WR", "number", 88)).statusCode());
+        login("participant@example.com");
+        assertEquals(
+            "DENIED",
+            json
+                .readTree(request("GET", "/api/join-requests", null, null, false).body())
+                .get(0)
+                .get("status")
+                .asString()
+        );
+        assertTrue(getSession().get("memberships").isEmpty());
+        assertEquals(201, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        login("manager@example.com");
+        JsonNode inbox = json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body());
+        assertEquals(1, inbox.size());
+        String second = inbox.get(0).get("id").asString();
+        assertEquals(400, post("/join-requests/" + second + "/decision", Map.of("approve", true, "position", "WR")).statusCode());
+        assertEquals(400, post("/join-requests/" + second + "/decision", Map.of("approve", true, "position", "WR", "number", 7)).statusCode());
+        assertEquals(1, json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body()).size());
+        assertEquals(200, post("/join-requests/" + second + "/decision", Map.of("approve", true, "position", "WR", "number", 88)).statusCode());
+        assertEquals(0, json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body()).size());
+        var added = league
+            .players()
+            .stream()
+            .filter(p -> p.teamId().equals("tigers") && p.number() == 88)
+            .findFirst()
+            .orElseThrow();
+        assertEquals("participant", added.name());
+        assertEquals("WR", added.position());
+        login("participant@example.com");
+        JsonNode history = json.readTree(request("GET", "/api/join-requests", null, null, false).body());
+        assertEquals(2, history.size());
+        assertTrue(history.toString().contains("APPROVED"));
+        assertEquals("tigers", membership().get("teamId").asString());
+        assertEquals("PLAYER", membership().get("role").asString());
+        league.assignTeamManager("bears", "other@example.com");
+        assertEquals(201, post("/join-requests", Map.of("teamId", "bears")).statusCode());
+        login("other@example.com");
+        String third = json
+            .readTree(request("GET", "/api/teams/bears/join-requests", null, null, false).body())
+            .get(0)
+            .get("id")
+            .asString();
+        assertEquals(409, post("/join-requests/" + third + "/decision", Map.of("approve", true, "position", "QB", "number", 90)).statusCode());
+        assertEquals(1, json.readTree(request("GET", "/api/teams/bears/join-requests", null, null, false).body()).size());
+        assertEquals(200, post("/join-requests/" + third + "/decision", Map.of("approve", false)).statusCode());
+    }
+
+    @Test
     void joinRequestsRejectMissingTeamsUnmanagedTeamsAndExistingMembers() throws Exception {
         joinAccounts();
         login("participant@example.com");
