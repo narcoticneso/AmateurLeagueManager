@@ -16,6 +16,8 @@ The interface takes inspiration from fantasy-football dashboards: dark surfaces,
 - Commissioner tools to create teams, add/remove roster entries, schedule games, reschedule games, mark postponements/cancellations, and record or correct scores.
 - Manager tools to add/remove players on their own team and link roster entries to accounts.
 - Read-only league, roster, and schedule access for players and visitors.
+- Team pages show league rank, season record, and season activity. Postponed games count as remaining; cancelled games do not.
+- Accounts can send join requests and view pending, approved, or denied history. Assigned managers see incoming pending requests and approve or deny them; an approved participant is added to the roster with a position and jersey number.
 - Automatic regular-season standings calculated from final results.
 - One four-team postseason cup with two semifinals and one championship. Matchups and advancement are entered manually.
 - Local database persistence across restarts.
@@ -131,7 +133,7 @@ Roles come from the account, not from a setting:
 | --- | --- | --- |
 | Commissioner | Developer accounts, plus any email listed in `ALM_COMMISSIONER_EMAILS` when it signs up | Create and edit teams; manage any roster; assign team managers; schedule games; enter/correct results; resolve score disputes |
 | Manager | An account the commissioner assigned to a team (**Assign manager** on a roster page) | Manage that team's roster, link roster entries to accounts, and submit or confirm that team's scores |
-| Player | An account linked to a roster entry (**Link account** on a roster page) | Read-only access; the team appears under **My team** |
+| Player | An account linked to a roster entry (**Link account** on a roster page) | Read league information; the team appears under **My team**; accounts can request to join other teams |
 | Public visitor | Not signed in | Read-only access |
 
 Permissions are enforced in Java, including direct API requests.
@@ -149,6 +151,20 @@ The demo data includes five developer accounts. Each is a commissioner and manag
 Each developer's password can be overridden independently before starting the server, using `ALM_PASSWORD_RUDRA`, `ALM_PASSWORD_RYAN`, `ALM_PASSWORD_LUCAS`, `ALM_PASSWORD_NEBOJSA`, and `ALM_PASSWORD_KIARA`. Do not commit real passwords. Developer accounts are created on every startup, but their team assignments are only seeded with a fresh database; in an older `data/` database, assign them with **Assign manager** or move `data/` aside.
 
 The app binds to `127.0.0.1` by default. It has not been deployed. Before hosting for real users, remove the demo accounts, add real email delivery, configure HTTPS, and review public roster visibility.
+
+### Try join requests (US-05)
+
+1. Start the server using the commands above. The local configuration logs verification codes in its terminal (`app.email-verification.log-code=true`).
+2. Open **Sign in**, choose **Create a new account**, and register two email accounts: one manager and one participant. Complete verification using each code from the server terminal. Sign out between accounts.
+3. Sign in as a developer (for example, `nebojsa@example.com`), open a team under **Teams & rosters**, and use **Assign manager** with the manager account's email.
+4. Sign out and sign in with the participant's email. Open **Join a team**, select the team, and click **Send join request**. It should appear as **Pending** under **My requests** and disappear from the available choices.
+5. Reload the page or sign out and back in. The request should still be there. The **Refresh** button reloads its latest status.
+6. Sign in with the manager account and open **My team** to see the incoming request. Only the currently assigned manager can read that team's inbox. There is no view switcher; permissions come from memberships automatically.
+7. Still as the manager, click **Approve**, choose a position and jersey number, and click **Add to roster**; the participant appears in the roster table. Or click **Deny** to remove the request from the inbox. Sign back in as the participant to see **Approved** or **Denied** under **My requests**.
+
+Teams without an assigned account manager do not accept requests. Existing members and participants with a pending request cannot submit another request for that team. A denied request remains in history and permits another submission. Submitting a request does not add a player to the roster. The assigned manager approves or denies each pending request under **Join requests** on the team page (US-14). Approving asks for a position and jersey number, adds the participant to the roster, and links the entry to their account; denying only marks the request as denied. The participant sees the result under **My requests**; there is no email or text notification. Without `-Pdev`, requests persist across server restarts; `-Pdev` resets the database on restart.
+
+`team_join_requests` stores the participant's `user_id`, `team_id`, `status` (`PENDING`, `APPROVED`, `DENIED`), and UTC `requested_at`. The authenticated endpoints are `GET /api/join-requests` (own history), `GET /api/join-requests/teams` (available teams), `POST /api/join-requests` with `{ "teamId": "..." }`, `GET /api/teams/{teamId}/join-requests` (assigned manager's pending inbox), and `POST /api/join-requests/{requestId}/decision` with `{ "approve": true, "position": "WR", "number": 88 }` or `{ "approve": false }` (assigned manager only). A decision updates the existing request so history is retained.
 
 ## Game and standings rules
 
@@ -206,9 +222,8 @@ Tests cover public read access, CSRF enforcement, developer logins, roles derive
 
 1. Agree on story ownership across the five developers.
 2. Add configurable league/season settings.
-3. Add join requests if they are needed after the basic workflow is comfortable.
-4. Add email delivery for verification codes.
-5. Consider reminders and historical seasons later.
+3. Add email delivery for verification codes.
+4. Consider reminders and historical seasons later.
 
 Automatic scheduling, SMS/email, player performance statistics, uploads, multiple leagues, and real-time updates are intentionally outside this first implementation. Refresh the page to see changes made in another browser session. Concurrent commissioner edits currently use last-write-wins; there is no edit-version conflict UI or audit log.
 

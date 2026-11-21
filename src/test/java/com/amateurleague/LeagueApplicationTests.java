@@ -36,12 +36,13 @@ class LeagueApplicationTests {
 
     @BeforeEach
     void reset() {
+        db.update("DELETE FROM team_join_requests");
         db.update("DELETE FROM team_memberships");
         db.update("DELETE FROM score_submissions");
         db.update("DELETE FROM games");
         db.update("DELETE FROM players");
+        db.update("DELETE FROM users");
         db.update("DELETE FROM teams");
-        db.update("DELETE FROM users WHERE NOT commissioner");
         demo.run();
         client = HttpClient.newBuilder().cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL)).build();
     }
@@ -100,6 +101,156 @@ class LeagueApplicationTests {
         assertEquals(401, post("/games", game("wolves", "bears", "REGULAR", "SCHEDULED", null, null)).statusCode());
         login("rudra@example.com");
         assertEquals(403, request("POST", "/api/games", "{}", "application/json", false).statusCode());
+    }
+
+    void joinAccounts() {
+        String hash = new BCryptPasswordEncoder().encode("neighborhood-demo");
+        for (String name : new String[] { "participant", "manager", "other" }) {
+            db.update("INSERT INTO users (id, email, display_name, password_hash, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)", name, name + "@example.com", name, hash);
+        }
+        league.assignTeamManager("tigers", "manager@example.com");
+    }
+
+    @Test
+    void participantsSendPrivateRequestsAndAssignedManagersReceiveThem() throws Exception {
+        joinAccounts();
+        getSession();
+        assertEquals(401, request("GET", "/api/join-requests", null, null, false).statusCode());
+        assertEquals(401, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        login("participant@example.com");
+        assertEquals(403, request("POST", "/api/join-requests", "{\"teamId\":\"tigers\"}", "application/json", false).statusCode());
+        assertEquals(201, post("/join-requests", Map.of("teamId", "tigers", "userId", "other", "status", "APPROVED")).statusCode());
+        JsonNode history = json.readTree(request("GET", "/api/join-requests", null, null, false).body());
+        assertEquals(1, history.size());
+        assertEquals("PENDING", history.get(0).get("status").asString());
+        assertEquals("participant", history.get(0).get("participantName").asString());
+        assertEquals(409, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        assertEquals(403, request("GET", "/api/teams/tigers/join-requests", null, null, false).statusCode());
+        assertEquals(0, db.queryForObject("SELECT COUNT(*) FROM team_memberships WHERE user_id = 'participant'", Integer.class));
+        login("other@example.com");
+        assertEquals(0, json.readTree(request("GET", "/api/join-requests", null, null, false).body()).size());
+        assertEquals(403, request("GET", "/api/teams/tigers/join-requests", null, null, false).statusCode());
+        login("manager@example.com");
+        JsonNode inbox = json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body());
+        assertEquals(history, inbox);
+        // Delivery follows the team's current manager, including after reassignment.
+        league.assignTeamManager("tigers", "other@example.com");
+        assertEquals(403, request("GET", "/api/teams/tigers/join-requests", null, null, false).statusCode());
+        login("other@example.com");
+        assertEquals(1, json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body()).size());
+    }
+
+    @Test
+    void joinHistoryPreservesDecisionsAndAllowsAnotherRequestAfterDenial() throws Exception {
+        joinAccounts();
+        login("participant@example.com");
+        assertEquals(201, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        // US-14 supplies the decision endpoint; exercise stored decisions without adding it here.
+        db.update("UPDATE team_join_requests SET status = 'DENIED'");
+        assertEquals(201, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        db.update("UPDATE team_join_requests SET status = 'APPROVED' WHERE status = 'PENDING'");
+        var history = json.readTree(request("GET", "/api/join-requests", null, null, false).body());
+        assertEquals(2, history.size());
+        assertEquals("APPROVED", history.get(0).get("status").asString());
+        assertEquals("DENIED", history.get(1).get("status").asString());
+        login("manager@example.com");
+        assertEquals(0, json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body()).size());
+    }
+
+    @Test
+    void managersApproveOrDenyJoinRequestsForTheirOwnTeam() throws Exception {
+        joinAccounts();
+        login("participant@example.com");
+        assertEquals(201, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        String first = json
+            .readTree(request("GET", "/api/join-requests", null, null, false).body())
+            .get(0)
+            .get("id")
+            .asString();
+        assertEquals(403, post("/join-requests/" + first + "/decision", Map.of("approve", true, "position", "WR", "number", 88)).statusCode());
+        login("rudra@example.com");
+        assertEquals(403, post("/join-requests/" + first + "/decision", Map.of("approve", false)).statusCode());
+        login("manager@example.com");
+        assertEquals(404, post("/join-requests/missing/decision", Map.of("approve", false)).statusCode());
+        assertEquals(200, post("/join-requests/" + first + "/decision", Map.of("approve", false)).statusCode());
+        assertEquals(0, json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body()).size());
+        assertEquals(409, post("/join-requests/" + first + "/decision", Map.of("approve", true, "position", "WR", "number", 88)).statusCode());
+        login("participant@example.com");
+        assertEquals(
+            "DENIED",
+            json
+                .readTree(request("GET", "/api/join-requests", null, null, false).body())
+                .get(0)
+                .get("status")
+                .asString()
+        );
+        assertTrue(getSession().get("memberships").isEmpty());
+        assertEquals(201, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        login("manager@example.com");
+        JsonNode inbox = json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body());
+        assertEquals(1, inbox.size());
+        String second = inbox.get(0).get("id").asString();
+        assertEquals(400, post("/join-requests/" + second + "/decision", Map.of("approve", true, "position", "WR")).statusCode());
+        assertEquals(400, post("/join-requests/" + second + "/decision", Map.of("approve", true, "position", "WR", "number", 7)).statusCode());
+        assertEquals(1, json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body()).size());
+        assertEquals(200, post("/join-requests/" + second + "/decision", Map.of("approve", true, "position", "WR", "number", 88)).statusCode());
+        assertEquals(0, json.readTree(request("GET", "/api/teams/tigers/join-requests", null, null, false).body()).size());
+        var added = league
+            .players()
+            .stream()
+            .filter(p -> p.teamId().equals("tigers") && p.number() == 88)
+            .findFirst()
+            .orElseThrow();
+        assertEquals("participant", added.name());
+        assertEquals("WR", added.position());
+        login("participant@example.com");
+        JsonNode history = json.readTree(request("GET", "/api/join-requests", null, null, false).body());
+        assertEquals(2, history.size());
+        assertTrue(history.toString().contains("APPROVED"));
+        assertEquals("tigers", membership().get("teamId").asString());
+        assertEquals("PLAYER", membership().get("role").asString());
+        league.assignTeamManager("bears", "other@example.com");
+        assertEquals(201, post("/join-requests", Map.of("teamId", "bears")).statusCode());
+        login("other@example.com");
+        String third = json
+            .readTree(request("GET", "/api/teams/bears/join-requests", null, null, false).body())
+            .get(0)
+            .get("id")
+            .asString();
+        assertEquals(409, post("/join-requests/" + third + "/decision", Map.of("approve", true, "position", "QB", "number", 90)).statusCode());
+        assertEquals(1, json.readTree(request("GET", "/api/teams/bears/join-requests", null, null, false).body()).size());
+        assertEquals(200, post("/join-requests/" + third + "/decision", Map.of("approve", false)).statusCode());
+    }
+
+    @Test
+    void joinRequestsRejectMissingTeamsUnmanagedTeamsAndExistingMembers() throws Exception {
+        joinAccounts();
+        login("participant@example.com");
+        assertEquals(400, post("/join-requests", Map.of()).statusCode());
+        assertEquals(404, post("/join-requests", Map.of("teamId", "missing")).statusCode());
+        assertEquals(409, post("/join-requests", Map.of("teamId", "falcons")).statusCode());
+        var available = json.readTree(request("GET", "/api/join-requests/teams", null, null, false).body());
+        assertEquals(5, available.size());
+        assertTrue(available.toString().contains("tigers"));
+        assertFalse(available.toString().contains("falcons"));
+        db.update("INSERT INTO team_memberships VALUES ('membership', 'participant', 'tigers', 'PLAYER', CURRENT_TIMESTAMP)");
+        assertEquals(409, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        db.update("DELETE FROM team_memberships WHERE id = 'membership'");
+        String playerId = league
+            .players()
+            .stream()
+            .filter(player -> player.teamId().equals("tigers"))
+            .findFirst()
+            .orElseThrow()
+            .id();
+        league.linkPlayerAccount("tigers", playerId, "participant@example.com");
+        assertEquals(409, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
+        var remaining = json.readTree(request("GET", "/api/join-requests/teams", null, null, false).body());
+        assertEquals(4, remaining.size());
+        assertFalse(remaining.toString().contains("tigers"));
+        login("rudra@example.com");
+        assertEquals(409, post("/join-requests", Map.of("teamId", "wolves")).statusCode());
+        assertEquals(201, post("/join-requests", Map.of("teamId", "tigers")).statusCode());
     }
 
     @Test
