@@ -15,6 +15,7 @@ The interface takes inspiration from fantasy-football dashboards: dark surfaces,
 - Five developer accounts with commissioner, manager, and player views.
 - Commissioner tools to create teams, add/remove roster entries, schedule games, reschedule games, mark postponements/cancellations, and record or correct scores.
 - Manager tools to add/remove players on their own assigned team.
+- Team pages show league rank, season record, and season activity: no games scheduled, awaiting the first result, season underway, or no upcoming games. Postponed games still count as remaining; cancelled games do not.
 - Player view with read-only league, roster, and schedule access.
 - Automatic regular-season standings calculated from final results.
 - One four-team postseason cup with two semifinals and one championship. Matchups and advancement are entered manually.
