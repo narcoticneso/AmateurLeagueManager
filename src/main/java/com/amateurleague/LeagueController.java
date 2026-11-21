@@ -94,7 +94,7 @@ public class LeagueController {
 
     @PutMapping("/teams/{teamId}")
     public void editTeam(@PathVariable String teamId, @RequestBody LeagueService.TeamInput input, Principal user) {
-        commissioner(user);
+        rosterPermission(teamId, user);
         league.updateTeam(teamId, input);
     }
 

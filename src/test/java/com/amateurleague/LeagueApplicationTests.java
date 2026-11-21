@@ -192,7 +192,7 @@ class LeagueApplicationTests {
         assertEquals("Lakewood Timberwolves", team.name());
         assertEquals("LT", team.abbreviation());
         assertEquals("#123456", team.color());
-        assertEquals("Test", team.manager());
+        assertEquals("Rudra", team.manager());
         assertEquals(6, league.teams().size());
         assertEquals(
             6,
@@ -213,6 +213,24 @@ class LeagueApplicationTests {
         account("player@test.local");
         login("player@test.local");
         assertEquals(403, request("PUT", "/api/teams/wolves", edit, "application/json", true).statusCode());
+    }
+
+    @Test
+    void managerCanEditOnlyTheirOwnTeam() throws Exception {
+        account("manager@test.local");
+        login("rudra@example.com");
+        var assign = json.writeValueAsString(Map.of("email", "manager@test.local"));
+        assertEquals(200, request("PUT", "/api/teams/wolves/manager", assign, "application/json", true).statusCode());
+        logout();
+        login("manager@test.local");
+        var edit = json.writeValueAsString(Map.of("name", "Lakewood Timberwolves", "abbreviation", "LT", "color", "#123456", "manager", "Someone Else"));
+        assertEquals(200, request("PUT", "/api/teams/wolves", edit, "application/json", true).statusCode());
+        var team = league.requireTeam("wolves");
+        assertEquals("Lakewood Timberwolves", team.name());
+        assertEquals("Test", team.manager());
+        assertEquals("wolves", membership().get("teamId").asString());
+        assertEquals(403, request("PUT", "/api/teams/bears", edit, "application/json", true).statusCode());
+        assertEquals("Brookside Bears", league.requireTeam("bears").name());
     }
 
     @Test

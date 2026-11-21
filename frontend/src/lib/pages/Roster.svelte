@@ -36,6 +36,7 @@
     {#snippet action()}
       {#if canEditRoster(id)}
         <Button onclick={() => openModal("new-player", id)}>＋ Add player</Button>
+        <Button variant="secondary" onclick={() => openModal("edit-team", id)}>Edit team</Button>
       {/if}
       {#if commissioner()}
         <Button variant="secondary" onclick={() => openModal("assign-team-manager", id)}>Assign manager</Button>
